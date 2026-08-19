@@ -10,3 +10,5 @@ def get_system_info():
         "architecture":platform.machine(),
         "python_version":platform.python_version()
     }
+if __name__=="__main__":
+    get_system_info()
