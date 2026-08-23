@@ -15,10 +15,11 @@ def get_network_info():
     mac_address = ":".join(
         f"{byte:02x}" for byte in uuid.getnode().to_bytes(6, "big")
     )
+
     interfaces = {}
 
     for interface_name, addresses in psutil.net_if_addrs().items():
-        interfaces[interface_name] = []
+        interfaces.setdefault(interface_name, [])
 
         for address in addresses:
             interfaces[interface_name].append({
@@ -26,9 +27,15 @@ def get_network_info():
                 "family": str(address.family),
             })
 
+    interface_status = {}
+
+    for interface_name, stats in psutil.net_if_stats().items():
+        interface_status[interface_name] = stats.isup
+
     return {
         "hostname": hostname,
         "ip_address": ip_address,
         "mac_address": mac_address,
         "interfaces": interfaces,
+        "interface_status": interface_status,
     }

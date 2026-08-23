@@ -14,3 +14,13 @@ def test_get_network_interfaces():
 
     assert "interfaces" in info
     assert isinstance(info["interfaces"], dict)
+
+    for interface_name, interface_data in info["interfaces"].items():
+        assert isinstance(interface_name, str)
+        assert isinstance(interface_data, list)
+
+def test_network_interface_status():
+    info = get_network_info()
+
+    assert "interface_status" in info
+    assert isinstance(info["interface_status"], dict)
