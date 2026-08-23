@@ -26,6 +26,24 @@ def get_system_info():
 
         except (PermissionError, OSError):
             continue
+        
+    processes = []
+
+    for process in psutil.process_iter(
+        ["pid", "name", "cpu_percent", "memory_percent"]
+    ):
+        try:
+            process_info = process.info
+
+            processes.append({
+                "pid": process_info["pid"],
+                "name": process_info["name"],
+                "cpu_percent": process_info["cpu_percent"],
+                "memory_percent": process_info["memory_percent"],
+            })
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
 
     return {
         "hostname": socket.gethostname(),
@@ -50,6 +68,9 @@ def get_system_info():
         "disk_percent": disk.percent,
         # Partitions information
         "partitions": partitions,
+        # Process information
+        "processes": processes,
+
     }
 
 

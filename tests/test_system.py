@@ -68,3 +68,16 @@ def test_partitions_information():
         assert isinstance(partition["used"], int)
         assert isinstance(partition["free"], int)
         assert isinstance(partition["percent"], float)
+
+def test_process_information():
+    info = get_system_info()
+
+    assert "processes" in info
+    assert isinstance(info["processes"], list)
+
+    for process in info["processes"]:
+        assert isinstance(process, dict)
+        assert "pid" in process
+        assert "name" in process
+        assert "cpu_percent" in process
+        assert "memory_percent" in process
