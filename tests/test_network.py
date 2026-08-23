@@ -9,3 +9,4 @@ def test_get_network_info():
     assert "ip_address" in info
     assert isinstance(info["hostname"], str)
     assert isinstance(info["ip_address"], str)
+    assert "mac_address" in info
