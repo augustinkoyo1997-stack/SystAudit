@@ -1,4 +1,4 @@
-from src.network import get_network_info
+from src.network import get_network_info, get_network_connections
 
 
 def test_get_network_info():
@@ -56,3 +56,31 @@ def test_network_interface_addresses():
             assert "family" in address
             assert "netmask" in address
             assert "broadcast" in address
+
+def test_network_connections():
+    connections = get_network_connections()
+
+    assert isinstance(connections, list)
+
+    for connection in connections:
+        assert isinstance(connection, dict)
+        assert "family" in connection
+        assert "type" in connection
+        assert "local_address" in connection
+        assert "remote_address" in connection
+        assert "status" in connection
+        assert "pid" in connection
+
+def test_network_routes():
+    info = get_network_info()
+
+    assert "routes" in info
+    assert isinstance(info["routes"], list)
+
+    for route in info["routes"]:
+        assert isinstance(route, dict)
+        assert "destination" in route
+        assert "netmask" in route
+        assert "gateway" in route
+        assert "interface" in route
+        assert "metric" in route
