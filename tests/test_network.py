@@ -114,7 +114,7 @@ def test_network_interface_details():
         assert isinstance(interface_data["speed"], int)
         assert isinstance(interface_data["mtu"], int)
         assert isinstance(interface_data["addresses"], list)
-        
+
 def test_network_interface_address_families():
     """Test human-readable network address families."""
     from src.network import get_network_interfaces
@@ -126,3 +126,23 @@ def test_network_interface_address_families():
     for interface_data in interfaces.values():
         for address in interface_data["addresses"]:
             assert address["family"] in valid_families
+
+def test_network_connection_process_name():
+    """Test that network connections include process information."""
+    from src.network import get_network_connections
+
+    connections = get_network_connections()
+
+    assert isinstance(connections, list)
+
+    for connection in connections:
+        assert "pid" in connection
+        assert "process_name" in connection
+
+        assert connection["pid"] is None or isinstance(
+            connection["pid"], int
+        )
+
+        assert connection["process_name"] is None or isinstance(
+            connection["process_name"], str
+        )

@@ -74,6 +74,14 @@ def get_network_connections():
                 "port": connection.raddr.port,
             }
 
+        process_name = None
+
+        if connection.pid is not None:
+            try:
+                process_name = psutil.Process(connection.pid).name()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                process_name = None
+
         connections.append({
             "family": str(connection.family),
             "type": str(connection.type),
@@ -81,6 +89,7 @@ def get_network_connections():
             "remote_address": remote_address,
             "status": connection.status,
             "pid": connection.pid,
+            "process_name": process_name,
         })
 
     return connections
