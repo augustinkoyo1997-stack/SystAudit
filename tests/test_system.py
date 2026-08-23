@@ -81,3 +81,15 @@ def test_process_information():
         assert "name" in process
         assert "cpu_percent" in process
         assert "memory_percent" in process
+
+def test_user_information():
+    info = get_system_info()
+
+    assert "users" in info
+    assert isinstance(info["users"], list)
+
+    for user in info["users"]:
+        assert isinstance(user, dict)
+        assert "name" in user
+        assert "terminal" in user
+        assert "host" in user

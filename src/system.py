@@ -26,7 +26,7 @@ def get_system_info():
 
         except (PermissionError, OSError):
             continue
-        
+
     processes = []
 
     for process in psutil.process_iter(
@@ -45,6 +45,14 @@ def get_system_info():
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
+    users = []
+
+    for user in psutil.users():
+        users.append({
+            "name": user.name,
+            "terminal": user.terminal,
+            "host": user.host,
+        })
     return {
         "hostname": socket.gethostname(),
         "operating_system": platform.system(),
@@ -70,7 +78,8 @@ def get_system_info():
         "partitions": partitions,
         # Process information
         "processes": processes,
-
+        # User information
+        "users": users,
     }
 
 
