@@ -8,6 +8,24 @@ def get_system_info():
 
     memory = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
+    partitions = []
+
+    for partition in psutil.disk_partitions():
+        try:
+            usage = psutil.disk_usage(partition.mountpoint)
+
+            partitions.append({
+                "device": partition.device,
+                "mountpoint": partition.mountpoint,
+                "filesystem": partition.fstype,
+                "total": usage.total,
+                "used": usage.used,
+                "free": usage.free,
+                "percent": usage.percent,
+            })
+
+        except (PermissionError, OSError):
+            continue
 
     return {
         "hostname": socket.gethostname(),
@@ -30,6 +48,8 @@ def get_system_info():
         "disk_used": disk.used,
         "disk_free": disk.free,
         "disk_percent": disk.percent,
+        # Partitions information
+        "partitions": partitions,
     }
 
 

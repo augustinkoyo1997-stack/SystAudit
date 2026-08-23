@@ -43,3 +43,28 @@ def test_disk_information():
     assert isinstance(info["disk_used"], int)
     assert isinstance(info["disk_free"], int)
     assert isinstance(info["disk_percent"], float)
+
+def test_partitions_information():
+    info = get_system_info()
+
+    assert "partitions" in info
+    assert isinstance(info["partitions"], list)
+
+    for partition in info["partitions"]:
+        assert isinstance(partition, dict)
+
+        assert "device" in partition
+        assert "mountpoint" in partition
+        assert "filesystem" in partition
+        assert "total" in partition
+        assert "used" in partition
+        assert "free" in partition
+        assert "percent" in partition
+
+        assert isinstance(partition["device"], str)
+        assert isinstance(partition["mountpoint"], str)
+        assert isinstance(partition["filesystem"], str)
+        assert isinstance(partition["total"], int)
+        assert isinstance(partition["used"], int)
+        assert isinstance(partition["free"], int)
+        assert isinstance(partition["percent"], float)
