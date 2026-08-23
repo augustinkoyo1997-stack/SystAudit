@@ -31,6 +31,15 @@ def get_network_info():
 
     for interface_name, stats in psutil.net_if_stats().items():
         interface_status[interface_name] = stats.isup
+        
+    network_stats = psutil.net_io_counters()
+
+    network_stats_data = {
+        "bytes_sent": network_stats.bytes_sent,
+        "bytes_recv": network_stats.bytes_recv,
+        "packets_sent": network_stats.packets_sent,
+        "packets_recv": network_stats.packets_recv,
+    }
 
     return {
         "hostname": hostname,
@@ -38,4 +47,6 @@ def get_network_info():
         "mac_address": mac_address,
         "interfaces": interfaces,
         "interface_status": interface_status,
+        "network_stats": network_stats_data,
     }
+
