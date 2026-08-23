@@ -40,3 +40,19 @@ def test_network_stats():
     assert "bytes_recv" in info["network_stats"]
     assert "packets_sent" in info["network_stats"]
     assert "packets_recv" in info["network_stats"]
+
+def test_network_interface_addresses():
+    info = get_network_info()
+
+    assert "interfaces" in info
+
+    for interface_name, interface_data in info["interfaces"].items():
+        assert isinstance(interface_name, str)
+        assert isinstance(interface_data, list)
+
+        for address in interface_data:
+            assert isinstance(address, dict)
+            assert "address" in address
+            assert "family" in address
+            assert "netmask" in address
+            assert "broadcast" in address

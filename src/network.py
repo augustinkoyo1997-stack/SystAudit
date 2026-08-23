@@ -25,6 +25,8 @@ def get_network_info():
             interfaces[interface_name].append({
                 "address": address.address,
                 "family": str(address.family),
+                "netmask": address.netmask,
+                "broadcast": address.broadcast,
             })
 
     interface_status = {}
