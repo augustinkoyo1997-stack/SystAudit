@@ -92,3 +92,37 @@ def test_network_routes():
         assert isinstance(route["gateway"], str)
         assert isinstance(route["interface"], str)
         assert isinstance(route["metric"], int)
+
+def test_network_interface_details():
+    """Test detailed network interface information."""
+    from src.network import get_network_interfaces
+
+    interfaces = get_network_interfaces()
+
+    assert isinstance(interfaces, dict)
+
+    for interface_name, interface_data in interfaces.items():
+        assert isinstance(interface_name, str)
+        assert isinstance(interface_data, dict)
+
+        assert "is_up" in interface_data
+        assert "speed" in interface_data
+        assert "mtu" in interface_data
+        assert "addresses" in interface_data
+
+        assert isinstance(interface_data["is_up"], bool)
+        assert isinstance(interface_data["speed"], int)
+        assert isinstance(interface_data["mtu"], int)
+        assert isinstance(interface_data["addresses"], list)
+        
+def test_network_interface_address_families():
+    """Test human-readable network address families."""
+    from src.network import get_network_interfaces
+
+    interfaces = get_network_interfaces()
+
+    valid_families = {"MAC", "IPv4", "IPv6"}
+
+    for interface_data in interfaces.values():
+        for address in interface_data["addresses"]:
+            assert address["family"] in valid_families

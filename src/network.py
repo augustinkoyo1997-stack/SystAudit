@@ -145,3 +145,44 @@ def get_network_routes():
         return []
 
     return routes
+
+def _get_address_family(address_family):
+    """Return a human-readable network address family."""
+    family = str(address_family)
+
+    if family == "-1":
+        return "MAC"
+    if family == "2":
+        return "IPv4"
+    if family == "23":
+        return "IPv6"
+
+    return family
+
+
+def get_network_interfaces():
+    """Return detailed information about network interfaces."""
+    interfaces = {}
+
+    addresses = psutil.net_if_addrs()
+    stats = psutil.net_if_stats()
+
+    for interface_name, interface_addresses in addresses.items():
+        interface_stats = stats.get(interface_name)
+
+        interfaces[interface_name] = {
+            "is_up": interface_stats.isup if interface_stats else False,
+            "speed": interface_stats.speed if interface_stats else 0,
+            "mtu": interface_stats.mtu if interface_stats else 0,
+            "addresses": [],
+        }
+
+        for address in interface_addresses:
+            interfaces[interface_name]["addresses"].append({
+                "address": address.address,
+                "family": _get_address_family(address.family),
+                "netmask": address.netmask,
+                "broadcast": address.broadcast,
+            })
+
+    return interfaces
