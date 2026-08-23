@@ -53,6 +53,21 @@ def get_system_info():
             "terminal": user.terminal,
             "host": user.host,
         })
+
+
+    services = []
+
+    for service in psutil.win_service_iter():
+        try:
+            services.append({
+                "name": service.name(),
+                "display_name": service.display_name(),
+                "status": service.status(),
+            })
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, FileNotFoundError):
+            continue
+
     return {
         "hostname": socket.gethostname(),
         "operating_system": platform.system(),
@@ -80,6 +95,8 @@ def get_system_info():
         "processes": processes,
         # User information
         "users": users,
+        # Service information
+        "services": services,
     }
 
 

@@ -93,3 +93,14 @@ def test_user_information():
         assert "name" in user
         assert "terminal" in user
         assert "host" in user
+
+def test_service_information():
+    info = get_system_info()
+
+    assert "services" in info
+    assert isinstance(info["services"], list)
+
+    for service in info["services"]:
+        assert isinstance(service, dict)
+        assert "name" in service
+        assert "status" in service
