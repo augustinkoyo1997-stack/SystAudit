@@ -30,3 +30,16 @@ def test_memory_information():
     assert isinstance(info["memory_total"], int)
     assert isinstance(info["memory_used"], int)
     assert isinstance(info["memory_percent"], float)
+
+def test_disk_information():
+    info = get_system_info()
+
+    assert "disk_total" in info
+    assert "disk_used" in info
+    assert "disk_free" in info
+    assert "disk_percent" in info
+
+    assert isinstance(info["disk_total"], int)
+    assert isinstance(info["disk_used"], int)
+    assert isinstance(info["disk_free"], int)
+    assert isinstance(info["disk_percent"], float)

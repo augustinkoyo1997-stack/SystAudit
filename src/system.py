@@ -7,6 +7,7 @@ def get_system_info():
     """Return basic information about the current system."""
 
     memory = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
 
     return {
         "hostname": socket.gethostname(),
@@ -23,6 +24,12 @@ def get_system_info():
         "memory_total": memory.total,
         "memory_used": memory.used,
         "memory_percent": memory.percent,
+
+        # Disk information
+        "disk_total": disk.total,
+        "disk_used": disk.used,
+        "disk_free": disk.free,
+        "disk_percent": disk.percent,
     }
 
 
