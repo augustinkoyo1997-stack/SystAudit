@@ -115,25 +115,31 @@ def get_network_routes():
 
             parts = line.split()
 
-            # Destination, masque, passerelle, interface, métrique
-            if len(parts) >= 5:
-                destination = parts[0]
-                netmask = parts[1]
-                gateway = parts[2]
-                interface = parts[3]
-                metric = parts[4]
+            # Ignore headers and invalid lines
+            if len(parts) < 5:
+                continue
 
-                if (
-                    destination.count(".") == 3
-                    and netmask.count(".") == 3
-                ):
-                    routes.append({
-                        "destination": destination,
-                        "netmask": netmask,
-                        "gateway": gateway,
-                        "interface": interface,
-                        "metric": metric,
-                    })
+            destination = parts[0]
+            netmask = parts[1]
+            gateway = parts[2]
+            interface = parts[3]
+
+            try:
+                metric = int(parts[4])
+            except ValueError:
+                continue
+
+            if (
+                destination.count(".") == 3
+                and netmask.count(".") == 3
+            ):
+                routes.append({
+                    "destination": destination,
+                    "netmask": netmask,
+                    "gateway": gateway,
+                    "interface": interface,
+                    "metric": metric,
+                })
 
     except (OSError, subprocess.SubprocessError):
         return []

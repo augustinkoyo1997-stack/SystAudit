@@ -84,3 +84,25 @@ def test_network_routes():
         assert "gateway" in route
         assert "interface" in route
         assert "metric" in route
+
+def test_network_routes():
+    """Test network routing table information."""
+    from src.network import get_network_routes
+
+    routes = get_network_routes()
+
+    assert isinstance(routes, list)
+
+    for route in routes:
+        assert isinstance(route, dict)
+        assert "destination" in route
+        assert "netmask" in route
+        assert "gateway" in route
+        assert "interface" in route
+        assert "metric" in route
+
+        assert isinstance(route["destination"], str)
+        assert isinstance(route["netmask"], str)
+        assert isinstance(route["gateway"], str)
+        assert isinstance(route["interface"], str)
+        assert isinstance(route["metric"], int)
