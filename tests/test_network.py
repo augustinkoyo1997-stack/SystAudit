@@ -72,20 +72,6 @@ def test_network_connections():
         assert "pid" in connection
 
 def test_network_routes():
-    info = get_network_info()
-
-    assert "routes" in info
-    assert isinstance(info["routes"], list)
-
-    for route in info["routes"]:
-        assert isinstance(route, dict)
-        assert "destination" in route
-        assert "netmask" in route
-        assert "gateway" in route
-        assert "interface" in route
-        assert "metric" in route
-
-def test_network_routes():
     """Test network routing table information."""
     from src.network import get_network_routes
 
