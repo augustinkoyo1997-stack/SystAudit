@@ -7,7 +7,8 @@ from src.security import (
     get_firewall_status,
     get_antivirus_status,
     get_windows_updates,
-    get_password_policy
+    get_password_policy,
+    get_logged_in_users,
 )
 
 
@@ -97,3 +98,13 @@ def test_get_password_policy():
     result = get_password_policy()
 
     assert isinstance(result, dict)
+
+
+def test_get_logged_in_users():
+    result = get_logged_in_users()
+
+    assert isinstance(result, list)
+
+    for user in result:
+        assert isinstance(user, str)
+        assert user.strip() != ""

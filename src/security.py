@@ -289,4 +289,48 @@ def get_password_policy():
 
     except (OSError, subprocess.SubprocessError):
         return {}
-    
+
+
+def get_logged_in_users():
+    """Return users currently logged into the Windows system."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            ["quser"],
+            capture_output=True,
+            text=True,
+            encoding="cp850",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return []
+
+        users = []
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+
+            if not line:
+                continue
+
+            if line.lower().startswith("nom_utilisateur"):
+                continue
+
+            line = line.lstrip(">")
+
+            parts = line.split()
+
+            if parts:
+                username = parts[0]
+
+                if username not in users:
+                    users.append(username)
+
+        return users
+
+    except (OSError, subprocess.SubprocessError):
+        return []
