@@ -17,6 +17,7 @@ from src.security import (
     get_suspicious_scheduled_tasks,
     get_suspicious_processes,
     get_suspicious_events,
+    
 )
 
 
@@ -220,6 +221,8 @@ def test_get_suspicious_processes():
 
     assert isinstance(result, list)
 
+    valid_risks = {"low", "medium", "high"}
+
     for process in result:
         assert isinstance(process, dict)
 
@@ -227,12 +230,16 @@ def test_get_suspicious_processes():
         assert "name" in process
         assert "path" in process
         assert "command_line" in process
+        assert "risk" in process
         assert "reason" in process
 
         assert isinstance(process["name"], str)
         assert isinstance(process["path"], str)
         assert isinstance(process["command_line"], str)
+        assert isinstance(process["risk"], str)
+        assert process["risk"] in valid_risks
         assert isinstance(process["reason"], str)
+        assert process["reason"].strip() != ""
 
 
 def test_get_suspicious_events():
@@ -243,10 +250,10 @@ def test_get_suspicious_events():
     for event in result:
         assert isinstance(event, dict)
 
-        assert "id" in event
-        assert "level" in event
+        assert "event_id" in event
+        assert "time" in event
+        assert "provider" in event
         assert "message" in event
 
-        assert isinstance(event["id"], int)
-        assert isinstance(event["level"], str)
+        assert isinstance(event["event_id"], int)
         assert isinstance(event["message"], str)

@@ -697,6 +697,8 @@ def get_suspicious_scheduled_tasks():
         return []
 
 
+
+
 def get_suspicious_processes():
     """Return Windows processes with potentially suspicious characteristics."""
     if platform.system() != "Windows":
@@ -734,34 +736,92 @@ def get_suspicious_processes():
             executable_path = process.get("ExecutablePath") or ""
             command_line = process.get("CommandLine") or ""
 
-            reasons = []
-            path_lower = executable_path.lower()
-
-            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
-                reasons.append("Executable located in temporary directory")
-
-            if "\\appdata\\" in path_lower:
-                reasons.append("Executable located in AppData")
-
             if not executable_path:
-                reasons.append("Executable path unavailable")
+                continue
 
-            if command_line and "powershell" in command_line.lower():
-                reasons.append("PowerShell command detected")
+            reasons = []
 
-            if command_line and " -enc " in command_line.lower():
-                reasons.append("Encoded PowerShell command detected")
+            path_lower = executable_path.lower()
+            command_lower = command_line.lower()
 
-            if reasons:
-                suspicious.append(
-                    {
-                        "pid": process.get("ProcessId"),
-                        "name": name,
-                        "path": executable_path,
-                        "command_line": command_line,
-                        "reason": "; ".join(reasons),
-                    }
+            # Temporary directory
+            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
+                reasons.append(
+                    "Executable located in temporary directory"
                 )
+
+            # AppData
+            if "\\appdata\\" in path_lower:
+                known_appdata_paths = (
+                    "\\appdata\\local\\programs\\",
+                    "\\appdata\\local\\microsoft\\windowsapps\\",
+                )
+
+                if not any(
+                    location in path_lower
+                    for location in known_appdata_paths
+                ):
+                    reasons.append(
+                        "Executable located in unusual AppData directory"
+                    )
+
+            # PowerShell detection
+            if "powershell" in command_lower or "pwsh" in command_lower:
+                suspicious_powershell_patterns = (
+                    "-enc ",
+                    "-encodedcommand ",
+                    "invoke-expression",
+                    "iex ",
+                    "downloadstring",
+                    "invoke-webrequest",
+                    "start-bitstransfer",
+                )
+
+                for pattern in suspicious_powershell_patterns:
+                    if pattern in command_lower:
+                        reasons.append(
+                            f"Suspicious PowerShell pattern detected: "
+                            f"{pattern.strip()}"
+                        )
+
+                if "\\temp\\" in command_lower or "\\tmp\\" in command_lower:
+                    reasons.append(
+                        "PowerShell command references a temporary directory"
+                    )
+
+            # Ignore known legitimate VS Code updater processes.
+            is_vscode_updater = (
+                name.lower().startswith("codesetup-stable-")
+                and (
+                    "\\temp\\vscode-stable-user-x64\\" in path_lower
+                    or "\\temp\\is-" in path_lower
+                )
+            )
+
+            if is_vscode_updater:
+                continue
+
+            if not reasons:
+                continue
+
+            # Risk calculation
+            if len(reasons) >= 3:
+                risk = "high"
+            elif len(reasons) == 2:
+                risk = "medium"
+            else:
+                risk = "low"
+
+            suspicious.append(
+                {
+                    "pid": process.get("ProcessId"),
+                    "name": name,
+                    "path": executable_path,
+                    "command_line": command_line,
+                    "risk": risk,
+                    "reason": "; ".join(reasons),
+                }
+            )
 
         return suspicious
 
@@ -773,59 +833,58 @@ def get_suspicious_processes():
     ):
         return []
 
-
 def get_suspicious_events():
-    """Return suspicious Windows Security event log entries."""
-    if platform.system() != "Windows":
-        return []
+    """
+    Detect potentially suspicious Windows Security events.
+    """
+    suspicious = []
 
     try:
+        command = """
+        Get-WinEvent -LogName Security -MaxEvents 100 |
+        Where-Object {
+            $_.Id -in @(4625, 4672, 4688)
+        } |
+        Select-Object Id, TimeCreated, ProviderName, Message |
+        ConvertTo-Json -Compress
+        """
+
         result = subprocess.run(
             [
                 "powershell",
                 "-NoProfile",
                 "-Command",
-                "Get-WinEvent -FilterHashtable @{"
-                "LogName='Security'; "
-                "Id=4625,4720,4722,4724,4725,4726"
-                "} -MaxEvents 50 | "
-                "Select-Object TimeCreated, Id, LevelDisplayName, ProviderName, Message | "
-                "ConvertTo-Json -Compress",
+                command
             ],
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace",
-            check=False,
+            errors="replace"
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return suspicious
 
         data = json.loads(result.stdout)
 
         if isinstance(data, dict):
             data = [data]
 
-        return [
-            {
+        for event in data:
+            suspicious.append({
+                "event_id": event.get("Id"),
                 "time": event.get("TimeCreated"),
-                "id": event.get("Id"),
-                "level": event.get("LevelDisplayName", ""),
-                "provider": event.get("ProviderName", ""),
-                "message": event.get("Message", ""),
-            }
-            for event in data
-            if event.get("Id") is not None
-        ]
+                "provider": event.get("ProviderName"),
+                "message": event.get("Message")
+            })
 
-    except (
-        OSError,
-        subprocess.SubprocessError,
-        ValueError,
-        json.JSONDecodeError,
-    ):
-        return []
+    except json.JSONDecodeError:
+        pass
+
+    except Exception as e:
+        print(f"Erreur lors de l'analyse des événements : {e}")
+
+    return suspicious
 
     
 
