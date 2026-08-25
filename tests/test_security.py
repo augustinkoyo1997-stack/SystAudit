@@ -1,4 +1,8 @@
-from src.security import is_administrator, get_security_info
+from src.security import (
+    is_administrator,
+    get_security_info,
+    get_local_administrators,
+)
 
 
 def test_is_administrator():
@@ -17,3 +21,11 @@ def test_get_security_info():
     assert isinstance(result["operating_system"], str)
     assert isinstance(result["hostname"], str)
     assert isinstance(result["administrator"], bool)
+
+def test_get_local_administrators():
+    result = get_local_administrators()
+
+    assert isinstance(result, list)
+
+    for administrator in result:
+        assert isinstance(administrator, str)
