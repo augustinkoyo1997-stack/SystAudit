@@ -11,6 +11,7 @@ from src.security import (
     get_logged_in_users,
     get_bitlocker_status,
     get_password_never_expires_users,
+    get_uac_status,
 )
 
 
@@ -136,3 +137,9 @@ def test_get_password_never_expires_users():
     for user in result:
         assert isinstance(user, str)
         assert user.strip() != ""
+
+
+def test_get_uac_status():
+    result = get_uac_status()
+
+    assert isinstance(result, bool)

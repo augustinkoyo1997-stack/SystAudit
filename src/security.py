@@ -430,4 +430,36 @@ def get_password_never_expires_users():
 
     except (OSError, subprocess.SubprocessError):
         return []
-    
+
+
+def get_uac_status():
+    """Return whether Windows User Account Control (UAC) is enabled."""
+    if platform.system() != "Windows":
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "(Get-ItemProperty "
+                "-Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' "
+                "-Name EnableLUA).EnableLUA",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return False
+
+        value = result.stdout.strip()
+
+        return value == "1"
+
+    except (OSError, subprocess.SubprocessError):
+        return False
