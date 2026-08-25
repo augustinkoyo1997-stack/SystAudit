@@ -5,6 +5,7 @@ from src.security import (
     get_local_users,
     get_disabled_users,
     get_firewall_status,
+    get_antivirus_status,
 )
 
 
@@ -63,3 +64,15 @@ def test_get_firewall_status():
     for profile, enabled in result.items():
         assert isinstance(profile, str)
         assert isinstance(enabled, bool)
+
+
+def test_get_antivirus_status():
+    result = get_antivirus_status()
+
+    assert isinstance(result, list)
+
+    for antivirus in result:
+        assert isinstance(antivirus, dict)
+        assert "name" in antivirus
+        assert "state" in antivirus
+        assert isinstance(antivirus["name"], str)

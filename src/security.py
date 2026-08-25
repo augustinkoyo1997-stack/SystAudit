@@ -168,3 +168,49 @@ def get_firewall_status():
 
     except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
         return {}
+
+
+def get_antivirus_status():
+    """Return the status of installed antivirus products."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance -Namespace root/SecurityCenter2 "
+                "-ClassName AntivirusProduct | "
+                "Select-Object displayName, productState | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if not result.stdout.strip():
+            return []
+
+        import json
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        return [
+            {
+                "name": antivirus.get("displayName", ""),
+                "state": antivirus.get("productState"),
+            }
+            for antivirus in data
+            if antivirus.get("displayName")
+        ]
+
+    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
+        return []
