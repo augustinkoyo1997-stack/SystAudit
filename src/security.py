@@ -126,3 +126,45 @@ def get_disabled_users():
 
     except (OSError, subprocess.SubprocessError):
         return []
+
+
+def get_firewall_status():
+    """Return the Windows Firewall status for all network profiles."""
+    if platform.system() != "Windows":
+        return {}
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-NetFirewallProfile | "
+                "Select-Object Name, Enabled | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if not result.stdout.strip():
+            return {}
+
+        import json
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        return {
+            profile["Name"]: bool(profile["Enabled"])
+            for profile in data
+            if "Name" in profile and "Enabled" in profile
+        }
+
+    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
+        return {}

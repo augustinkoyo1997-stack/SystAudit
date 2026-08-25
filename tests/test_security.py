@@ -4,6 +4,7 @@ from src.security import (
     get_local_administrators,
     get_local_users,
     get_disabled_users,
+    get_firewall_status,
 )
 
 
@@ -52,3 +53,13 @@ def test_get_disabled_users():
     for user in result:
         assert isinstance(user, str)
         assert user.strip() != ""
+
+
+def test_get_firewall_status():
+    result = get_firewall_status()
+
+    assert isinstance(result, dict)
+
+    for profile, enabled in result.items():
+        assert isinstance(profile, str)
+        assert isinstance(enabled, bool)
