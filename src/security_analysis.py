@@ -101,3 +101,21 @@ def analyze_security():
         })
 
     return findings
+
+
+def calculate_security_score(findings):
+    """Calculate a security score from 0 to 100."""
+
+    score = 100
+
+    penalties = {
+        "high": 25,
+        "medium": 10,
+        "low": 5,
+    }
+
+    for finding in findings:
+        risk = finding.get("risk", "low")
+        score -= penalties.get(risk, 0)
+
+    return max(0, score)
