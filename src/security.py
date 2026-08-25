@@ -395,3 +395,39 @@ def test_get_bitlocker_status():
         assert "encryption_percentage" in volume
 
         assert isinstance(volume["mount_point"], str)
+
+
+def get_password_never_expires_users():
+    """Return local users whose passwords are configured to never expire."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-LocalUser | "
+                "Where-Object {$_.PasswordNeverExpires -eq $true} | "
+                "Select-Object -ExpandProperty Name",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return []
+
+        return [
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip()
+        ]
+
+    except (OSError, subprocess.SubprocessError):
+        return []
+    

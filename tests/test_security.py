@@ -10,6 +10,7 @@ from src.security import (
     get_password_policy,
     get_logged_in_users,
     get_bitlocker_status,
+    get_password_never_expires_users,
 )
 
 
@@ -125,3 +126,13 @@ def test_get_bitlocker_status():
 
         assert isinstance(volume["mount_point"], str)
         assert isinstance(volume["encryption_percentage"], (int, float))
+
+
+def test_get_password_never_expires_users():
+    result = get_password_never_expires_users()
+
+    assert isinstance(result, list)
+
+    for user in result:
+        assert isinstance(user, str)
+        assert user.strip() != ""
