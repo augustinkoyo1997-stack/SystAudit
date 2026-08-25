@@ -526,3 +526,82 @@ def get_firewall_rules():
         json.JSONDecodeError,
     ):
         return []
+
+
+def get_suspicious_services():
+    """Return Windows services with potentially suspicious characteristics."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Service | "
+                "Select-Object Name, DisplayName, State, StartMode, PathName | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        suspicious = []
+
+        for service in data:
+            name = service.get("Name", "")
+            display_name = service.get("DisplayName", "")
+            state = service.get("State", "")
+            start_mode = service.get("StartMode", "")
+            path = service.get("PathName") or ""
+
+            reasons = []
+
+            path_lower = path.lower()
+
+            if start_mode.lower() == "auto" and state.lower() == "stopped":
+                reasons.append("Automatic service is stopped")
+
+            if not path:
+                reasons.append("Missing executable path")
+
+            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
+                reasons.append("Executable located in temporary directory")
+
+            if path and " " in path and not path.startswith('"'):
+                reasons.append("Executable path containing spaces is not quoted")
+
+            if reasons:
+                suspicious.append(
+                    {
+                        "name": name,
+                        "display_name": display_name,
+                        "status": state,
+                        "start_type": start_mode,
+                        "path": path,
+                        "reason": "; ".join(reasons),
+                    }
+                )
+
+        return suspicious
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return []
+    

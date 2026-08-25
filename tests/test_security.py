@@ -13,6 +13,7 @@ from src.security import (
     get_password_never_expires_users,
     get_uac_status,
     get_firewall_rules,
+    get_suspicious_services,
 )
 
 
@@ -164,3 +165,26 @@ def test_get_firewall_rules():
         assert isinstance(rule["action"], str)
         assert isinstance(rule["enabled"], bool)
         assert isinstance(rule["profile"], str)
+
+
+def test_get_suspicious_services():
+    result = get_suspicious_services()
+
+    assert isinstance(result, list)
+
+    for service in result:
+        assert isinstance(service, dict)
+
+        assert "name" in service
+        assert "display_name" in service
+        assert "status" in service
+        assert "start_type" in service
+        assert "path" in service
+        assert "reason" in service
+
+        assert isinstance(service["name"], str)
+        assert isinstance(service["display_name"], str)
+        assert isinstance(service["status"], str)
+        assert isinstance(service["start_type"], str)
+        assert isinstance(service["path"], str)
+        assert isinstance(service["reason"], str)
