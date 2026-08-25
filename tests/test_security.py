@@ -3,6 +3,7 @@ from src.security import (
     get_security_info,
     get_local_administrators,
     get_local_users,
+    get_disabled_users,
 )
 
 
@@ -35,6 +36,16 @@ def test_get_local_administrators():
 
 def test_get_local_users():
     result = get_local_users()
+
+    assert isinstance(result, list)
+
+    for user in result:
+        assert isinstance(user, str)
+        assert user.strip() != ""
+
+
+def test_get_disabled_users():
+    result = get_disabled_users()
 
     assert isinstance(result, list)
 

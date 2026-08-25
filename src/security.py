@@ -100,3 +100,29 @@ def get_local_users():
 
     except (OSError, subprocess.SubprocessError):
         return []
+
+
+def get_disabled_users():
+    """Return disabled local Windows user accounts."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-LocalUser | Where-Object {$_.Enabled -eq $false} | Select-Object -ExpandProperty Name"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        return [
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip()
+        ]
+
+    except (OSError, subprocess.SubprocessError):
+        return []
