@@ -195,3 +195,28 @@ def get_network_interfaces():
             })
 
     return interfaces
+
+
+def get_listening_ports():
+    """Return TCP ports currently listening on the local machine."""
+    import psutil
+
+    listening_ports = []
+
+    for connection in psutil.net_connections(kind="inet"):
+        if connection.status != psutil.CONN_LISTEN:
+            continue
+
+        if not connection.laddr:
+            continue
+
+        listening_ports.append(
+            {
+                "local_address": connection.laddr.ip,
+                "port": connection.laddr.port,
+                "protocol": "TCP",
+                "pid": connection.pid,
+            }
+        )
+
+    return listening_ports
