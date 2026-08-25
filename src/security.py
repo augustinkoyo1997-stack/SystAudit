@@ -24,6 +24,7 @@ def get_security_info():
     }
 
 
+
 def get_local_administrators():
     """Return local members of the Windows Administrators group."""
     if platform.system() != "Windows":
@@ -57,6 +58,45 @@ def get_local_administrators():
                     administrators.append(line)
 
         return administrators
+
+    except (OSError, subprocess.SubprocessError):
+        return []
+    
+
+
+def get_local_users():
+    """Return local Windows user accounts."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            ["net", "user"],
+            capture_output=True,
+            text=True,
+            encoding="cp850",
+            errors="replace",
+            check=False,
+        )
+
+        users = []
+        collecting = False
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+
+            if line.startswith("---"):
+                collecting = True
+                continue
+
+            if collecting:
+                if line.lower().startswith("the command"):
+                    break
+
+                if line:
+                    users.extend(line.split())
+
+        return users
 
     except (OSError, subprocess.SubprocessError):
         return []

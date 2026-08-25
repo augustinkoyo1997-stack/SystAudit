@@ -2,6 +2,7 @@ from src.security import (
     is_administrator,
     get_security_info,
     get_local_administrators,
+    get_local_users,
 )
 
 
@@ -22,6 +23,7 @@ def test_get_security_info():
     assert isinstance(result["hostname"], str)
     assert isinstance(result["administrator"], bool)
 
+
 def test_get_local_administrators():
     result = get_local_administrators()
 
@@ -29,3 +31,13 @@ def test_get_local_administrators():
 
     for administrator in result:
         assert isinstance(administrator, str)
+
+
+def test_get_local_users():
+    result = get_local_users()
+
+    assert isinstance(result, list)
+
+    for user in result:
+        assert isinstance(user, str)
+        assert user.strip() != ""
