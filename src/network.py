@@ -256,3 +256,40 @@ def get_network_processes():
         )
 
     return connections
+
+
+def get_suspicious_ports():
+    """Return listening ports that are commonly considered sensitive."""
+    sensitive_ports = {
+        21: ("FTP", "HIGH"),
+        23: ("Telnet", "HIGH"),
+        25: ("SMTP", "MEDIUM"),
+        110: ("POP3", "MEDIUM"),
+        139: ("NetBIOS", "HIGH"),
+        445: ("SMB", "HIGH"),
+        3389: ("RDP", "HIGH"),
+        5900: ("VNC", "HIGH"),
+        8080: ("HTTP-Alt", "MEDIUM"),
+    }
+
+    suspicious = []
+
+    for port_info in get_listening_ports():
+        port = port_info["port"]
+
+        if port not in sensitive_ports:
+            continue
+
+        service, risk = sensitive_ports[port]
+
+        suspicious.append(
+            {
+                "port": port,
+                "service": service,
+                "risk": risk,
+                "local_address": port_info["local_address"],
+                "pid": port_info["pid"],
+            }
+        )
+
+    return suspicious

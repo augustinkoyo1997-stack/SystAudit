@@ -194,3 +194,26 @@ def test_get_network_processes():
             connection["process_name"] is None
             or isinstance(connection["process_name"], str)
         )
+
+
+def test_get_suspicious_ports():
+    from src.network import get_suspicious_ports
+
+    result = get_suspicious_ports()
+
+    assert isinstance(result, list)
+
+    for item in result:
+        assert isinstance(item, dict)
+
+        assert "port" in item
+        assert "service" in item
+        assert "risk" in item
+        assert "local_address" in item
+        assert "pid" in item
+
+        assert isinstance(item["port"], int)
+        assert isinstance(item["service"], str)
+        assert item["risk"] in {"LOW", "MEDIUM", "HIGH"}
+        assert isinstance(item["local_address"], str)
+        assert item["pid"] is None or isinstance(item["pid"], int)
