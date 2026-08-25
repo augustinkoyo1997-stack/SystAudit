@@ -1,4 +1,5 @@
 import ctypes
+import json
 import platform
 import subprocess
 
@@ -32,37 +33,32 @@ def get_local_administrators():
 
     try:
         result = subprocess.run(
-            ["net", "localgroup", "Administrators"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-LocalGroupMember -SID 'S-1-5-32-544' | "
+                "Select-Object -ExpandProperty Name",
+            ],
             capture_output=True,
             text=True,
-            encoding="cp850",
+            encoding="utf-8",
             errors="replace",
             check=False,
         )
 
-        administrators = []
-        collecting = False
+        if result.returncode != 0:
+            return []
 
-        for line in result.stdout.splitlines():
-            line = line.strip()
-
-            if line.startswith("---"):
-                collecting = True
-                continue
-
-            if collecting:
-                if line.lower().startswith("the command"):
-                    break
-
-                if line:
-                    administrators.append(line)
-
-        return administrators
+        return [
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip()
+        ]
 
     except (OSError, subprocess.SubprocessError):
         return []
     
-
 
 def get_local_users():
     """Return local Windows user accounts."""
@@ -71,35 +67,31 @@ def get_local_users():
 
     try:
         result = subprocess.run(
-            ["net", "user"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-LocalUser | Select-Object -ExpandProperty Name",
+            ],
             capture_output=True,
             text=True,
-            encoding="cp850",
+            encoding="utf-8",
             errors="replace",
             check=False,
         )
 
-        users = []
-        collecting = False
+        if result.returncode != 0:
+            return []
 
-        for line in result.stdout.splitlines():
-            line = line.strip()
-
-            if line.startswith("---"):
-                collecting = True
-                continue
-
-            if collecting:
-                if line.lower().startswith("the command"):
-                    break
-
-                if line:
-                    users.extend(line.split())
-
-        return users
+        return [
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip()
+        ]
 
     except (OSError, subprocess.SubprocessError):
         return []
+    
 
 
 def get_disabled_users():
@@ -109,14 +101,23 @@ def get_disabled_users():
 
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command",
-             "Get-LocalUser | Where-Object {$_.Enabled -eq $false} | Select-Object -ExpandProperty Name"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-LocalUser | "
+                "Where-Object {$_.Enabled -eq $false} | "
+                "Select-Object -ExpandProperty Name",
+            ],
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             check=False,
         )
+
+        if result.returncode != 0:
+            return []
 
         return [
             line.strip()
@@ -152,8 +153,6 @@ def get_firewall_status():
 
         if not result.stdout.strip():
             return {}
-
-        import json
 
         data = json.loads(result.stdout)
 
@@ -195,8 +194,6 @@ def get_antivirus_status():
 
         if not result.stdout.strip():
             return []
-
-        import json
 
         data = json.loads(result.stdout)
 
@@ -241,8 +238,6 @@ def get_windows_updates():
 
         if not result.stdout.strip():
             return []
-
-        import json
 
         data = json.loads(result.stdout)
 
@@ -294,3 +289,4 @@ def get_password_policy():
 
     except (OSError, subprocess.SubprocessError):
         return {}
+    
