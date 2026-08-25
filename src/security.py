@@ -382,19 +382,6 @@ def get_bitlocker_status():
         return []
 
 
-def test_get_bitlocker_status():
-    result = get_bitlocker_status()
-
-    assert isinstance(result, list)
-
-    for volume in result:
-        assert isinstance(volume, dict)
-        assert "mount_point" in volume
-        assert "volume_status" in volume
-        assert "protection_status" in volume
-        assert "encryption_percentage" in volume
-
-        assert isinstance(volume["mount_point"], str)
 
 
 def get_password_never_expires_users():
@@ -463,3 +450,79 @@ def get_uac_status():
 
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def get_firewall_rules():
+    """Return enabled Windows Firewall rules."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-NetFirewallRule | "
+                "Where-Object {$_.Enabled -eq 'True'} | "
+                "Select-Object DisplayName, Direction, Action, Enabled, Profile | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        direction_map = {
+            1: "Inbound",
+            2: "Outbound",
+        }
+
+        action_map = {
+            1: "NotConfigured",
+            2: "Allow",
+            3: "Block",
+        }
+
+        rules = []
+
+        for rule in data:
+            if not rule.get("DisplayName"):
+                continue
+
+            direction = rule.get("Direction")
+            action = rule.get("Action")
+
+            rules.append(
+                {
+                    "name": rule.get("DisplayName", ""),
+                    "direction": direction_map.get(
+                        direction, str(direction)
+                    ),
+                    "action": action_map.get(
+                        action, str(action)
+                    ),
+                    "enabled": bool(rule.get("Enabled")),
+                    "profile": str(rule.get("Profile", "")),
+                }
+            )
+
+        return rules
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return []

@@ -12,6 +12,7 @@ from src.security import (
     get_bitlocker_status,
     get_password_never_expires_users,
     get_uac_status,
+    get_firewall_rules,
 )
 
 
@@ -143,3 +144,23 @@ def test_get_uac_status():
     result = get_uac_status()
 
     assert isinstance(result, bool)
+
+
+def test_get_firewall_rules():
+    result = get_firewall_rules()
+
+    assert isinstance(result, list)
+
+    for rule in result:
+        assert isinstance(rule, dict)
+        assert "name" in rule
+        assert "direction" in rule
+        assert "action" in rule
+        assert "enabled" in rule
+        assert "profile" in rule
+
+        assert isinstance(rule["name"], str)
+        assert isinstance(rule["direction"], str)
+        assert isinstance(rule["action"], str)
+        assert isinstance(rule["enabled"], bool)
+        assert isinstance(rule["profile"], str)
