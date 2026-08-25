@@ -9,6 +9,7 @@ from src.security import (
     get_windows_updates,
     get_password_policy,
     get_logged_in_users,
+    get_bitlocker_status,
 )
 
 
@@ -108,3 +109,19 @@ def test_get_logged_in_users():
     for user in result:
         assert isinstance(user, str)
         assert user.strip() != ""
+
+
+def test_get_bitlocker_status():
+    result = get_bitlocker_status()
+
+    assert isinstance(result, list)
+
+    for volume in result:
+        assert isinstance(volume, dict)
+        assert "mount_point" in volume
+        assert "volume_status" in volume
+        assert "protection_status" in volume
+        assert "encryption_percentage" in volume
+
+        assert isinstance(volume["mount_point"], str)
+        assert isinstance(volume["encryption_percentage"], (int, float))

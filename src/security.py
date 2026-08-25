@@ -334,3 +334,64 @@ def get_logged_in_users():
 
     except (OSError, subprocess.SubprocessError):
         return []
+
+
+def get_bitlocker_status():
+    """Return BitLocker encryption status for Windows drives."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-BitLockerVolume | "
+                "Select-Object MountPoint, VolumeStatus, "
+                "ProtectionStatus, EncryptionPercentage | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        return [
+            {
+                "mount_point": volume.get("MountPoint"),
+                "volume_status": volume.get("VolumeStatus"),
+                "protection_status": volume.get("ProtectionStatus"),
+                "encryption_percentage": volume.get("EncryptionPercentage"),
+            }
+            for volume in data
+            if volume.get("MountPoint")
+        ]
+
+    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
+        return []
+
+
+def test_get_bitlocker_status():
+    result = get_bitlocker_status()
+
+    assert isinstance(result, list)
+
+    for volume in result:
+        assert isinstance(volume, dict)
+        assert "mount_point" in volume
+        assert "volume_status" in volume
+        assert "protection_status" in volume
+        assert "encryption_percentage" in volume
+
+        assert isinstance(volume["mount_point"], str)
