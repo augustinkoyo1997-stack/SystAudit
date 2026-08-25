@@ -604,4 +604,172 @@ def get_suspicious_services():
         json.JSONDecodeError,
     ):
         return []
+
+
+def get_suspicious_scheduled_tasks():
+    """Return Windows scheduled tasks with potentially suspicious characteristics."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-ScheduledTask | "
+                "Select-Object TaskName, TaskPath, State, Actions, Principal | "
+                "ConvertTo-Json -Compress -Depth 5",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        suspicious = []
+
+        for task in data:
+            task_name = task.get("TaskName", "")
+            task_path = task.get("TaskPath", "")
+            state = task.get("State", "")
+
+            reasons = []
+            action_path = ""
+
+            actions = task.get("Actions")
+
+            if isinstance(actions, dict):
+                action_path = actions.get("Execute", "") or ""
+            elif isinstance(actions, list):
+                for action in actions:
+                    if isinstance(action, dict) and action.get("Execute"):
+                        action_path = action["Execute"]
+                        break
+
+            path_lower = action_path.lower()
+
+            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
+                reasons.append("Executable located in temporary directory")
+
+            if "\\appdata\\" in path_lower:
+                reasons.append("Executable located in AppData")
+
+            if action_path and " " in action_path and not action_path.startswith('"'):
+                reasons.append("Executable path containing spaces is not quoted")
+
+            principal = task.get("Principal")
+
+            if isinstance(principal, dict):
+                run_level = principal.get("RunLevel", "")
+
+                if str(run_level).lower() == "highest":
+                    reasons.append("Task configured with highest privileges")
+
+            if reasons:
+                suspicious.append(
+                    {
+                        "name": task_name,
+                        "path": task_path,
+                        "state": str(state),
+                        "action": str(action_path),
+                        "reason": "; ".join(reasons),
+                    }
+                )
+
+        return suspicious
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return []
+
+
+def get_suspicious_processes():
+    """Return Windows processes with potentially suspicious characteristics."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process | "
+                "Select-Object ProcessId, Name, ExecutablePath, CommandLine | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        suspicious = []
+
+        for process in data:
+            name = process.get("Name", "") or ""
+            executable_path = process.get("ExecutablePath") or ""
+            command_line = process.get("CommandLine") or ""
+
+            reasons = []
+            path_lower = executable_path.lower()
+
+            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
+                reasons.append("Executable located in temporary directory")
+
+            if "\\appdata\\" in path_lower:
+                reasons.append("Executable located in AppData")
+
+            if not executable_path:
+                reasons.append("Executable path unavailable")
+
+            if command_line and "powershell" in command_line.lower():
+                reasons.append("PowerShell command detected")
+
+            if command_line and " -enc " in command_line.lower():
+                reasons.append("Encoded PowerShell command detected")
+
+            if reasons:
+                suspicious.append(
+                    {
+                        "pid": process.get("ProcessId"),
+                        "name": name,
+                        "path": executable_path,
+                        "command_line": command_line,
+                        "reason": "; ".join(reasons),
+                    }
+                )
+
+        return suspicious
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return []
     

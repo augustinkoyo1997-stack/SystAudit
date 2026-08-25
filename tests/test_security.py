@@ -14,6 +14,8 @@ from src.security import (
     get_uac_status,
     get_firewall_rules,
     get_suspicious_services,
+    get_suspicious_scheduled_tasks,
+    get_suspicious_processes,
 )
 
 
@@ -188,3 +190,45 @@ def test_get_suspicious_services():
         assert isinstance(service["start_type"], str)
         assert isinstance(service["path"], str)
         assert isinstance(service["reason"], str)
+
+
+
+def test_get_suspicious_scheduled_tasks():
+    result = get_suspicious_scheduled_tasks()
+
+    assert isinstance(result, list)
+
+    for task in result:
+        assert isinstance(task, dict)
+
+        assert "name" in task
+        assert "path" in task
+        assert "state" in task
+        assert "action" in task
+        assert "reason" in task
+
+        assert isinstance(task["name"], str)
+        assert isinstance(task["path"], str)
+        assert isinstance(task["state"], str)
+        assert isinstance(task["action"], str)
+        assert isinstance(task["reason"], str)
+
+
+def test_get_suspicious_processes():
+    result = get_suspicious_processes()
+
+    assert isinstance(result, list)
+
+    for process in result:
+        assert isinstance(process, dict)
+
+        assert "pid" in process
+        assert "name" in process
+        assert "path" in process
+        assert "command_line" in process
+        assert "reason" in process
+
+        assert isinstance(process["name"], str)
+        assert isinstance(process["path"], str)
+        assert isinstance(process["command_line"], str)
+        assert isinstance(process["reason"], str)
