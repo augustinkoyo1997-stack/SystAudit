@@ -214,3 +214,83 @@ def get_antivirus_status():
 
     except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
         return []
+
+
+def get_windows_updates():
+    """Return recently installed Windows updates."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-HotFix | "
+                "Sort-Object InstalledOn -Descending | "
+                "Select-Object -First 20 HotFixID, Description, InstalledOn | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if not result.stdout.strip():
+            return []
+
+        import json
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        return [
+            {
+                "id": update.get("HotFixID", ""),
+                "description": update.get("Description", ""),
+                "installed_on": update.get("InstalledOn"),
+            }
+            for update in data
+            if update.get("HotFixID")
+        ]
+
+    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
+        return []
+
+
+def get_password_policy():
+    """Return the local Windows password and account lockout policy."""
+    if platform.system() != "Windows":
+        return {}
+
+    try:
+        result = subprocess.run(
+            ["net", "accounts"],
+            capture_output=True,
+            text=True,
+            encoding="cp850",
+            errors="replace",
+            check=False,
+        )
+
+        policy = {}
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+
+            if ":" in line:
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+
+                policy[key] = value
+
+        return policy
+
+    except (OSError, subprocess.SubprocessError):
+        return {}

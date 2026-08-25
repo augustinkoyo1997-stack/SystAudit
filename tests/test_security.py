@@ -6,6 +6,8 @@ from src.security import (
     get_disabled_users,
     get_firewall_status,
     get_antivirus_status,
+    get_windows_updates,
+    get_password_policy
 )
 
 
@@ -76,3 +78,22 @@ def test_get_antivirus_status():
         assert "name" in antivirus
         assert "state" in antivirus
         assert isinstance(antivirus["name"], str)
+
+
+def test_get_windows_updates():
+    result = get_windows_updates()
+
+    assert isinstance(result, list)
+
+    for update in result:
+        assert isinstance(update, dict)
+        assert "id" in update
+        assert "description" in update
+        assert "installed_on" in update
+        assert isinstance(update["id"], str)
+
+
+def test_get_password_policy():
+    result = get_password_policy()
+
+    assert isinstance(result, dict)
