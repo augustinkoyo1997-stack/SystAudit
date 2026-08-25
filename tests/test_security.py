@@ -16,6 +16,7 @@ from src.security import (
     get_suspicious_services,
     get_suspicious_scheduled_tasks,
     get_suspicious_processes,
+    get_suspicious_events,
 )
 
 
@@ -232,3 +233,20 @@ def test_get_suspicious_processes():
         assert isinstance(process["path"], str)
         assert isinstance(process["command_line"], str)
         assert isinstance(process["reason"], str)
+
+
+def test_get_suspicious_events():
+    result = get_suspicious_events()
+
+    assert isinstance(result, list)
+
+    for event in result:
+        assert isinstance(event, dict)
+
+        assert "id" in event
+        assert "level" in event
+        assert "message" in event
+
+        assert isinstance(event["id"], int)
+        assert isinstance(event["level"], str)
+        assert isinstance(event["message"], str)

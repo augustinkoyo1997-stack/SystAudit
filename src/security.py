@@ -772,4 +772,60 @@ def get_suspicious_processes():
         json.JSONDecodeError,
     ):
         return []
+
+
+def get_suspicious_events():
+    """Return suspicious Windows Security event log entries."""
+    if platform.system() != "Windows":
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-WinEvent -FilterHashtable @{"
+                "LogName='Security'; "
+                "Id=4625,4720,4722,4724,4725,4726"
+                "} -MaxEvents 50 | "
+                "Select-Object TimeCreated, Id, LevelDisplayName, ProviderName, Message | "
+                "ConvertTo-Json -Compress",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        data = json.loads(result.stdout)
+
+        if isinstance(data, dict):
+            data = [data]
+
+        return [
+            {
+                "time": event.get("TimeCreated"),
+                "id": event.get("Id"),
+                "level": event.get("LevelDisplayName", ""),
+                "provider": event.get("ProviderName", ""),
+                "message": event.get("Message", ""),
+            }
+            for event in data
+            if event.get("Id") is not None
+        ]
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return []
+
     
+
