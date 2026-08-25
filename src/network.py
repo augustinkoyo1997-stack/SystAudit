@@ -220,3 +220,39 @@ def get_listening_ports():
         )
 
     return listening_ports
+
+
+def get_network_processes():
+    """Return network connections associated with processes."""
+    connections = []
+
+    for connection in psutil.net_connections(kind="inet"):
+        if not connection.laddr:
+            continue
+
+        process_name = None
+
+        if connection.pid is not None:
+            try:
+                process = psutil.Process(connection.pid)
+                process_name = process.name()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                process_name = None
+
+        connections.append(
+            {
+                "local_address": connection.laddr.ip,
+                "local_port": connection.laddr.port,
+                "remote_address": (
+                    connection.raddr.ip if connection.raddr else None
+                ),
+                "remote_port": (
+                    connection.raddr.port if connection.raddr else None
+                ),
+                "status": connection.status,
+                "pid": connection.pid,
+                "process_name": process_name,
+            }
+        )
+
+    return connections

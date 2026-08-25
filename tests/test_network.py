@@ -166,3 +166,31 @@ def test_get_listening_ports():
         assert isinstance(port["port"], int)
         assert port["protocol"] == "TCP"
         assert port["pid"] is None or isinstance(port["pid"], int)
+
+
+
+def test_get_network_processes():
+    from src.network import get_network_processes
+
+    result = get_network_processes()
+
+    assert isinstance(result, list)
+
+    for connection in result:
+        assert isinstance(connection, dict)
+
+        assert "local_address" in connection
+        assert "local_port" in connection
+        assert "remote_address" in connection
+        assert "remote_port" in connection
+        assert "status" in connection
+        assert "pid" in connection
+        assert "process_name" in connection
+
+        assert isinstance(connection["local_address"], str)
+        assert isinstance(connection["local_port"], int)
+        assert connection["pid"] is None or isinstance(connection["pid"], int)
+        assert (
+            connection["process_name"] is None
+            or isinstance(connection["process_name"], str)
+        )
