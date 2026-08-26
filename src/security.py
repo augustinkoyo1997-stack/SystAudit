@@ -58,7 +58,7 @@ def get_local_administrators():
 
     except (OSError, subprocess.SubprocessError):
         return []
-    
+
 
 def get_local_users():
     """Return local Windows user accounts."""
@@ -91,7 +91,7 @@ def get_local_users():
 
     except (OSError, subprocess.SubprocessError):
         return []
-    
+
 
 
 def get_disabled_users():
@@ -337,7 +337,7 @@ def get_logged_in_users():
 
 
 def get_bitlocker_status():
-    """Return BitLocker encryption status for Windows drives."""
+    """Return BitLocker encryption and key protection status."""
     if platform.system() != "Windows":
         return []
 
@@ -349,8 +349,9 @@ def get_bitlocker_status():
                 "-Command",
                 "Get-BitLockerVolume | "
                 "Select-Object MountPoint, VolumeStatus, "
-                "ProtectionStatus, EncryptionPercentage | "
-                "ConvertTo-Json -Compress",
+                "ProtectionStatus, EncryptionPercentage, "
+                "EncryptionMethod, KeyProtector | "
+                "ConvertTo-Json -Compress -Depth 5",
             ],
             capture_output=True,
             text=True,
@@ -367,21 +368,44 @@ def get_bitlocker_status():
         if isinstance(data, dict):
             data = [data]
 
-        return [
-            {
-                "mount_point": volume.get("MountPoint"),
-                "volume_status": volume.get("VolumeStatus"),
-                "protection_status": volume.get("ProtectionStatus"),
-                "encryption_percentage": volume.get("EncryptionPercentage"),
-            }
-            for volume in data
-            if volume.get("MountPoint")
-        ]
+        volumes = []
 
-    except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
+        for volume in data:
+            mount_point = volume.get("MountPoint")
+
+            if not mount_point:
+                continue
+
+            key_protectors = volume.get("KeyProtector") or []
+
+            if isinstance(key_protectors, dict):
+                key_protectors = [key_protectors]
+
+            volumes.append(
+                {
+                    "mount_point": mount_point,
+                    "volume_status": volume.get("VolumeStatus"),
+                    "protection_status": volume.get("ProtectionStatus"),
+                    "encryption_percentage": volume.get(
+                        "EncryptionPercentage"
+                    ),
+                    "encryption_method": volume.get(
+                        "EncryptionMethod"
+                    ),
+                    "key_protectors": key_protectors,
+                    "key_protector_count": len(key_protectors),
+                }
+            )
+
+        return volumes
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
         return []
-
-
 
 
 def get_password_never_expires_users():
@@ -570,19 +594,95 @@ def get_suspicious_services():
             reasons = []
 
             path_lower = path.lower()
+            stripped_path = path.strip()
 
-            if start_mode.lower() == "auto" and state.lower() == "stopped":
-                reasons.append("Automatic service is stopped")
+            # ---------------------------------------------------------
+            # 1. Service configured as automatic but currently stopped
+            # ---------------------------------------------------------
 
-            if not path:
+
+            # ---------------------------------------------------------
+            # 2. Missing executable path
+            # ---------------------------------------------------------
+            if not stripped_path:
                 reasons.append("Missing executable path")
 
-            if "\\temp\\" in path_lower or "\\tmp\\" in path_lower:
-                reasons.append("Executable located in temporary directory")
+            # ---------------------------------------------------------
+            # 3. Executable launched from temporary directories
+            # ---------------------------------------------------------
+            if (
+                "\\temp\\" in path_lower
+                or "\\tmp\\" in path_lower
+                or path_lower.startswith("temp\\")
+            ):
+                reasons.append(
+                    "Executable located in temporary directory"
+                )
 
-            if path and " " in path and not path.startswith('"'):
-                reasons.append("Executable path containing spaces is not quoted")
+            # ---------------------------------------------------------
+            # 4. Unquoted executable path containing spaces
+            #
+            # Correct examples:
+            # "C:\Program Files\App\app.exe"
+            # "C:\Program Files\App\app.exe" /service
+            #
+            # Suspicious example:
+            # C:\Program Files\App\app.exe /service
+            # ---------------------------------------------------------
+            if stripped_path and " " in stripped_path:
+                if not stripped_path.startswith('"'):
 
+                    executable_part = stripped_path
+
+                    # Isolate the executable path
+                    exe_index = executable_part.lower().find(".exe")
+
+                    if exe_index != -1:
+                        executable_part = executable_part[:exe_index + 4]
+
+                    # A real unquoted service-path risk exists when:
+                    # - the executable path contains spaces
+                    # - the path points to an executable
+                    # - the executable is located outside standard protected
+                    #   application/system directories
+                    protected_locations = (
+                        "c:\\windows\\",
+                        "c:\\program files\\",
+                        "c:\\program files (x86)\\",
+                    )
+
+                    executable_lower = executable_part.lower()
+
+                    if (
+                        ".exe" in executable_lower
+                        and not executable_lower.startswith(protected_locations)
+                    ):
+                        reasons.append(
+                            "Executable path containing spaces is not quoted"
+                        )
+
+            # ---------------------------------------------------------
+            # 5. Suspicious executable locations
+            # ---------------------------------------------------------
+            suspicious_locations = (
+                "\\users\\public\\",
+                "\\appdata\\local\\temp\\",
+                "\\appdata\\roaming\\",
+                "\\downloads\\",
+                "\\desktop\\",
+            )
+
+            if any(
+                location in path_lower
+                for location in suspicious_locations
+            ):
+                reasons.append(
+                    "Executable located in a user-writable directory"
+                )
+
+            # ---------------------------------------------------------
+            # Add service only when at least one suspicious reason exists
+            # ---------------------------------------------------------
             if reasons:
                 suspicious.append(
                     {
@@ -597,6 +697,8 @@ def get_suspicious_services():
 
         return suspicious
 
+        return suspicious
+
     except (
         OSError,
         subprocess.SubprocessError,
@@ -604,7 +706,6 @@ def get_suspicious_services():
         json.JSONDecodeError,
     ):
         return []
-
 
 def get_suspicious_scheduled_tasks():
     """Return Windows scheduled tasks with potentially suspicious characteristics."""
@@ -886,5 +987,5 @@ def get_suspicious_events():
 
     return suspicious
 
-    
+
 

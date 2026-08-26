@@ -43,7 +43,7 @@ def analyze_security():
             "message": "No antivirus product was detected.",
         })
 
-    # BitLocker
+        # BitLocker
     bitlocker = get_bitlocker_status()
 
     if bitlocker:
@@ -54,10 +54,20 @@ def analyze_security():
         ]
 
         if unprotected:
+            affected_volumes = [
+                volume.get("mount_point", "Unknown")
+                for volume in unprotected
+            ]
+
+            volumes_text = ", ".join(affected_volumes)
+
             findings.append({
                 "risk": "medium",
                 "category": "bitlocker",
-                "message": "One or more BitLocker volumes are not protected.",
+                "message": (
+                    f"BitLocker protection is disabled on volume(s): "
+                    f"{volumes_text}."
+                ),
             })
 
     # Passwords that never expire
