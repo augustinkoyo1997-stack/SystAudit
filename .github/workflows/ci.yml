@@ -14,6 +14,8 @@ jobs:
   tests:
     runs-on: windows-latest
 
+    env:
+      DJANGO_SECRET_KEY: "ci-only-development-key-not-for-production"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
