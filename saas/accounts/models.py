@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -17,6 +19,12 @@ class License(models.Model):
         related_name="license",
     )
 
+    key = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
     plan = models.CharField(
         max_length=20,
         choices=PLAN_CHOICES,
@@ -25,7 +33,13 @@ class License(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    max_devices = models.PositiveIntegerField(
+        default=1,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
 
     expires_at = models.DateTimeField(
         null=True,
@@ -37,4 +51,7 @@ class License(models.Model):
 
     @property
     def is_premium(self):
-        return self.plan == self.PLAN_PREMIUM and self.is_active
+        return (
+            self.plan == self.PLAN_PREMIUM
+            and self.is_active
+        )
