@@ -7,3 +7,4 @@ venv/
 .vscode/
 .idea/
 .pytest_cache/
+sysaudit_report.json

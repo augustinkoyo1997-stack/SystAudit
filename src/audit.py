@@ -1,7 +1,8 @@
-from src.security_analysis import analyze_security
+﻿from src.security_analysis import analyze_security
 from src.security_analysis import calculate_security_score
 from src.security_recommendations import generate_recommendations
 from src.security_report import generate_security_report
+from src.report_export import export_report_to_json
 
 
 def run_security_audit():
@@ -18,6 +19,16 @@ def run_security_audit():
         recommendations,
         score,
     )
+
+    return report
+
+
+def run_and_export_security_audit(output_file="sysaudit_report.json"):
+    """Run a security audit and export the report to JSON."""
+
+    report = run_security_audit()
+
+    export_report_to_json(report, output_file)
 
     return report
 
@@ -58,5 +69,5 @@ def print_security_report(report):
 
 
 if __name__ == "__main__":
-    report = run_security_audit()
+    report = run_and_export_security_audit()
     print_security_report(report)
