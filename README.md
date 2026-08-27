@@ -88,9 +88,11 @@ Recommendations
           that recovery keys are securely stored.
 
 ========================================
+```
 
-🏗️ Architecture
+## 🏗️ Architecture
 
+```text
 sysaudit/
 │
 ├── src/
@@ -118,64 +120,93 @@ sysaudit/
 ├── requirements.txt
 ├── .gitignore
 └── README.md
+```
 
-⚙️ Prérequis
-Windows 10 ou Windows 11
-Python 3.10+
-Git
-PowerShell recommandé
+## ⚙️ Prérequis
 
-🚀 Installation
+- Windows 10 ou Windows 11
+- Python 3.10+
+- Git
+- PowerShell recommandé
+
+## 🚀 Installation
 
 Cloner le dépôt :
+
+```powershell
 git clone <URL_DU_DEPOT>
 cd sysaudit
+```
 
 Créer un environnement virtuel :
 
+```powershell
 python -m venv .venv
+```
 
 Activer l'environnement virtuel :
 
+```powershell
 .\.venv\Scripts\Activate.ps1
+```
 
 Installer les dépendances :
 
+```powershell
 pip install -r requirements.txt
-▶️ Utilisation
+```
+
+## ▶️ Utilisation
 
 Lancer l'audit :
 
+```powershell
 python -m src.audit
+```
 
 Ou directement avec l'environnement virtuel :
 
+```powershell
 .\.venv\Scripts\python.exe -m src.audit
-🧪 Tests
+```
+
+## 🧪 Tests
 
 SystAudit dispose d'une suite de tests automatisés avec pytest.
 
 Lancer tous les tests :
 
+```powershell
 python -m pytest -v
+```
 
 Dernière validation :
 
+```text
 56 passed
-🔎 Qualité du projet
+```
+
+## 🔎 Qualité du projet
 
 Le projet a été vérifié avec :
 
+```powershell
 python -m pytest -v
+```
 
 Résultat de la dernière validation :
 
+```text
 56 passed in 102.11s
+```
 
 La vérification Git suivante ne retourne aucune erreur :
 
+```powershell
 git diff --check
-⚠️ Limites
+```
+
+## ⚠️ Limites
 
 SystAudit est actuellement principalement destiné à l'audit de postes Windows.
 
@@ -183,34 +214,37 @@ La détection d'éléments suspects repose sur des règles d'analyse et ne const
 
 Les résultats doivent donc être interprétés dans leur contexte.
 
-🔒 Sécurité
+## 🔒 Sécurité
 
 SystAudit est conçu à des fins d'administration système, d'audit et d'apprentissage de la cybersécurité.
 
 Utilisez cet outil uniquement sur des systèmes que vous êtes autorisé à analyser.
 
-🛠️ Technologies
-Python
-psutil
-pytest
-PowerShell
-Windows
-📈 État du projet
+## 🛠️ Technologies
 
-Version : 1.0.0
+- Python
+- psutil
+- pytest
+- PowerShell
+- Windows
+
+## 📈 État du projet
+
+**Version : 1.0.0**
 
 Le moteur d'audit, l'analyse de sécurité, le scoring, les recommandations, le rapport et les tests automatisés sont fonctionnels.
 
 Les prochaines évolutions pourront notamment concerner :
 
-amélioration de la détection
-export des rapports
-interface graphique ou web
-journalisation
-davantage de contrôles de sécurité
-support d'autres systèmes
-👨‍💻 Auteur
+- amélioration de la détection
+- export des rapports
+- interface graphique ou web
+- journalisation
+- davantage de contrôles de sécurité
+- support d'autres systèmes
 
-Augustin KOYO
+## 👨‍💻 Auteur
+
+**Augustin KOYO**
 
 Projet personnel réalisé dans le cadre de mon apprentissage de l'administration système, du développement Python et de la cybersécurité.
