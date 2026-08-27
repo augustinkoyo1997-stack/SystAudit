@@ -1,0 +1,62 @@
+from src.security_analysis import analyze_security
+from src.security_analysis import calculate_security_score
+from src.security_recommendations import generate_recommendations
+from src.security_report import generate_security_report
+
+
+def run_security_audit():
+    """Run a complete security audit and return the final report."""
+
+    findings = analyze_security()
+
+    score = calculate_security_score(findings)
+
+    recommendations = generate_recommendations(findings)
+
+    report = generate_security_report(
+        findings,
+        recommendations,
+        score,
+    )
+
+    return report
+
+
+def print_security_report(report):
+    """Print a security report in a human-readable format."""
+
+    print("=" * 40)
+    print("        SYSAUDIT REPORT")
+    print("=" * 40)
+
+    print(f"\nSecurity Score : {report['score']}/100")
+
+    summary = report["summary"]
+
+    print("\nFindings")
+    print("--------")
+    print(f"HIGH   : {summary['high']}")
+    print(f"MEDIUM : {summary['medium']}")
+    print(f"LOW    : {summary['low']}")
+
+    print("\nRecommendations")
+    print("---------------")
+
+    if not report["recommendations"]:
+        print("No recommendations.")
+    else:
+        for recommendation in report["recommendations"]:
+            print(
+                f"[{recommendation['risk'].upper()}] "
+                f"{recommendation['reason']}"
+            )
+            print(
+                f"       → {recommendation['recommendation']}"
+            )
+
+    print("\n" + "=" * 40)
+
+
+if __name__ == "__main__":
+    report = run_security_audit()
+    print_security_report(report)
