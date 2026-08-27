@@ -1,0 +1,6 @@
+requirements.txt text diff
+*.py text
+*.yml text
+*.yaml text
+*.md text
+*.txt text
