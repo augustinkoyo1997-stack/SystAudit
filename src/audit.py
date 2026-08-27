@@ -3,6 +3,7 @@ from src.security_analysis import calculate_security_score
 from src.security_recommendations import generate_recommendations
 from src.security_report import generate_security_report
 from src.report_export import export_report_to_json
+from src.license_guard import check_license
 
 
 def run_security_audit():
@@ -66,6 +67,23 @@ def print_security_report(report):
             )
 
     print("\n" + "=" * 40)
+
+
+def run_protected_audit(license_key, output_file="sysaudit_report.json"):
+    """Run and export a security audit only if the license is valid."""
+
+    license_result = check_license(license_key)
+
+    if not license_result.get("allowed", False):
+        print("License validation failed.")
+        print(f"Reason : {license_result.get('reason', 'Invalid license.')}")
+        return None
+
+    report = run_security_audit()
+
+    export_report_to_json(report, output_file)
+
+    return report
 
 
 if __name__ == "__main__":
