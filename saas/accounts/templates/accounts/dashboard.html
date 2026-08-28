@@ -288,7 +288,7 @@
     </div>
 
 <a class="logout" href="{% url 'logout' %}">
-    Se dÃ©connecter
+    Se d&eacute;connecter
 </a>
 
 </header>
@@ -296,8 +296,8 @@
 <main class="container">
 
 <section class="welcome">
-    <h1>Bienvenue, {{ user.username }} ðŸ‘‹</h1>
-    <p>Voici l'Ã©tat actuel de votre compte SystAudit.</p>
+    <h1>Bienvenue, {{ user.username }} &#128075;</h1>
+    <p>Voici l'&eacute;tat actuel de votre compte SystAudit.</p>
 </section>
 
 <section class="cards">
@@ -310,12 +310,12 @@
     </div>
 
     <div class="card">
-        <div class="card-label">Ã‰tat de la licence</div>
+        <div class="card-label">&Eacute;tat de la licence</div>
         <div class="card-value active">
             {% if license.is_active %}
-                â— Active
+                &#9679; Active
             {% else %}
-                â— Inactive
+                &#9679; Inactive
             {% endif %}
         </div>
     </div>
@@ -335,7 +335,7 @@
     <div class="license-grid">
 
         <div class="info license-key-box">
-            <span>ClÃ© de licence</span>
+            <span>Cl&eacute; de licence</span>
 
             <div class="license-key-row">
                 <strong id="license-key">
@@ -391,13 +391,13 @@
 
     {% if license.plan == "free" %}
         <a href="#" class="upgrade">
-            Passer Ã  Premium
+                Passer &agrave; Premium
         </a>
     {% endif %}
 </section>
 
 <section class="license-card">
-    <h2>Appareils activÃ©s</h2>
+    <h2>Appareils activ&eacute;s</h2>
 
     {% if devices %}
         <div class="device-list">
@@ -411,12 +411,12 @@
                         </div>
 
                         <div class="device-status">
-                            â— ActivÃ©
+                            &#9679; Activ&eacute;
                         </div>
                     </div>
 
                     <div class="device-info">
-                        DerniÃ¨re activitÃ© :
+                            Derni&egrave;re activit&eacute; :
                         {{ device.last_seen_at }}
                     </div>
 
@@ -426,13 +426,13 @@
         </div>
     {% else %}
         <div class="empty-state">
-            Aucun appareil n'est encore activÃ© sur cette licence.
+            Aucun appareil n'est encore activ&eacute; sur cette licence.
         </div>
     {% endif %}
 </section>
 
 <div class="footer">
-    Â© 2026 SystAudit â€” Security made simple
+        &copy; 2026 SystAudit &mdash; Security made simple
 </div>
 
 </main>
@@ -443,9 +443,9 @@
 
         try {
             await navigator.clipboard.writeText(key);
-            message.textContent = "ClÃ© copiÃ©e.";
+            message.textContent = "Cl&eacute; copi&eacute;e.";
         } catch (error) {
-            message.textContent = "Impossible de copier la clÃ©.";
+            message.textContent = "Impossible de copier la cl&eacute;.";
         }
     }
 </script>
