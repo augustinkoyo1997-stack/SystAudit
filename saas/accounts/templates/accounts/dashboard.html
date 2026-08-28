@@ -1,20 +1,454 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - SystAudit</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        min-height: 100vh;
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .topbar {
+        background: #0f172a;
+        color: white;
+        padding: 18px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .brand-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+
+    .logout {
+        color: white;
+        text-decoration: none;
+        padding: 10px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .logout:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    .welcome {
+        margin-bottom: 30px;
+    }
+
+    .welcome h1 {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+
+    .welcome p {
+        color: #64748b;
+        font-size: 16px;
+    }
+
+    .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.07);
+    }
+
+    .card-label {
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .card-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .active {
+        color: #16a34a;
+    }
+
+    .free {
+        color: #2563eb;
+    }
+
+    .license-card {
+        background: white;
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.07);
+    }
+
+    .license-card h2 {
+        margin-bottom: 24px;
+    }
+
+    .license-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 18px;
+    }
+
+    .info {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 16px;
+    }
+
+    .info span {
+        display: block;
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .info strong {
+        font-size: 15px;
+        word-break: break-word;
+    }
+
+    .device-list {
+        display: grid;
+        gap: 15px;
+    }
+
+    .device {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 18px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .device-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+
+    .device-name {
+        font-size: 16px;
+        font-weight: 700;
+        word-break: break-word;
+    }
+
+    .device-status {
+        color: #16a34a;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .device-info {
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .empty-state {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .upgrade {
+        margin-top: 24px;
+        display: inline-block;
+        padding: 12px 20px;
+        border-radius: 9px;
+        background: #2563eb;
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .upgrade:hover {
+        background: #1d4ed8;
+    }
+
+    .footer {
+        text-align: center;
+        color: #94a3b8;
+        margin-top: 30px;
+        font-size: 13px;
+    }
+
+    @media (max-width: 800px) {
+        .cards {
+            grid-template-columns: 1fr;
+        }
+
+        .license-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .topbar {
+            padding: 15px 18px;
+        }
+
+        .device-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+
+        .license-key-box {
+        position: relative;
+    }
+
+    .license-key-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .license-key-row strong {
+        flex: 1;
+        font-family: Consolas, monospace;
+        font-size: 14px;
+    }
+
+    .copy-button {
+        border: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #2563eb;
+        color: white;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .copy-button:hover {
+        background: #1d4ed8;
+    }
+
+    .copy-message {
+        display: block;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #16a34a;
+    }
+</style>
+
 </head>
+
 <body>
-    <h1>Bienvenue sur SystAudit</h1>
-     <p><a href="{% url 'logout' %}">Se déconnecter</a> </p>
-    <p>Utilisateur : {{ user.username }}</p>
 
-    <h2>Ma licence</h2>
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">S</div>
+        <span>SystAudit</span>
+    </div>
 
-    <p>Clé : {{ license.key }}</p>
-    <p>Plan : {{ license.plan }}</p>
-    <p>Active : {{ license.is_active }}</p>
-    <p>Appareils maximum : {{ license.max_devices }}</p>
-    <p>Expiration : {{ license.expires_at|default:"Aucune" }}</p>
+<a class="logout" href="{% url 'logout' %}">
+    Se dÃ©connecter
+</a>
+
+</header>
+
+<main class="container">
+
+<section class="welcome">
+    <h1>Bienvenue, {{ user.username }} ðŸ‘‹</h1>
+    <p>Voici l'Ã©tat actuel de votre compte SystAudit.</p>
+</section>
+
+<section class="cards">
+
+    <div class="card">
+        <div class="card-label">Votre plan</div>
+        <div class="card-value free">
+            {{ license.plan|upper }}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">Ã‰tat de la licence</div>
+        <div class="card-value active">
+            {% if license.is_active %}
+                â— Active
+            {% else %}
+                â— Inactive
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">Appareils</div>
+        <div class="card-value">
+            {{ devices_used }} / {{ license.max_devices }}
+        </div>
+    </div>
+
+</section>
+
+<section class="license-card">
+    <h2>Informations de licence</h2>
+
+    <div class="license-grid">
+
+        <div class="info license-key-box">
+            <span>ClÃ© de licence</span>
+
+            <div class="license-key-row">
+                <strong id="license-key">
+                    {{ license_key_masked }}
+                </strong>
+
+                <button
+                    type="button"
+                    class="copy-button"
+                    onclick="copyLicenseKey()"
+                >
+                    Copier
+                </button>
+            </div>
+
+            <input
+                type="hidden"
+                id="full-license-key"
+                value="{{ license_key }}"
+            >
+
+            <span id="copy-message" class="copy-message"></span>
+        </div>
+
+        <div class="info">
+            <span>Plan</span>
+            <strong>{{ license.plan|upper }}</strong>
+        </div>
+
+        <div class="info">
+            <span>Statut</span>
+            <strong>
+                {% if license.is_active %}
+                    Active
+                {% else %}
+                    Inactive
+                {% endif %}
+            </strong>
+        </div>
+
+        <div class="info">
+            <span>Expiration</span>
+            <strong>
+                {% if license.expires_at %}
+                    {{ license.expires_at }}
+                {% else %}
+                    Aucune
+                {% endif %}
+            </strong>
+        </div>
+
+    </div>
+
+    {% if license.plan == "free" %}
+        <a href="#" class="upgrade">
+            Passer Ã  Premium
+        </a>
+    {% endif %}
+</section>
+
+<section class="license-card">
+    <h2>Appareils activÃ©s</h2>
+
+    {% if devices %}
+        <div class="device-list">
+
+            {% for device in devices %}
+                <div class="device">
+
+                    <div class="device-header">
+                        <div class="device-name">
+                            {{ device.device_id }}
+                        </div>
+
+                        <div class="device-status">
+                            â— ActivÃ©
+                        </div>
+                    </div>
+
+                    <div class="device-info">
+                        DerniÃ¨re activitÃ© :
+                        {{ device.last_seen_at }}
+                    </div>
+
+                </div>
+            {% endfor %}
+
+        </div>
+    {% else %}
+        <div class="empty-state">
+            Aucun appareil n'est encore activÃ© sur cette licence.
+        </div>
+    {% endif %}
+</section>
+
+<div class="footer">
+    Â© 2026 SystAudit â€” Security made simple
+</div>
+
+</main>
+<script>
+    async function copyLicenseKey() {
+        const key = document.getElementById("full-license-key").value;
+        const message = document.getElementById("copy-message");
+
+        try {
+            await navigator.clipboard.writeText(key);
+            message.textContent = "ClÃ© copiÃ©e.";
+        } catch (error) {
+            message.textContent = "Impossible de copier la clÃ©.";
+        }
+    }
+</script>
+
 </body>
 </html>

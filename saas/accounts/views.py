@@ -54,11 +54,18 @@ def logout_view(request):
 
 @login_required
 def dashboard_view(request):
+    license_obj = request.user.license
+    license_key = str(license_obj.key)
+
     return render(
         request,
         "accounts/dashboard.html",
         {
             "user": request.user,
-            "license": request.user.license,
+            "license": license_obj,
+            "devices": license_obj.devices.all(),
+            "devices_used": license_obj.devices.count(),
+            "license_key": license_key,
+            "license_key_masked": f"{license_key[:8]}-****-****-****-****",
         },
     )
