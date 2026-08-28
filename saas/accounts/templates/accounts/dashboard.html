@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - SystAudit</title>
+</head>
+<body>
+    <h1>Bienvenue sur SystAudit</h1>
+     <p><a href="{% url 'logout' %}">Se déconnecter</a> </p>
+    <p>Utilisateur : {{ user.username }}</p>
+
+    <h2>Ma licence</h2>
+
+    <p>Clé : {{ license.key }}</p>
+    <p>Plan : {{ license.plan }}</p>
+    <p>Active : {{ license.is_active }}</p>
+    <p>Appareils maximum : {{ license.max_devices }}</p>
+    <p>Expiration : {{ license.expires_at|default:"Aucune" }}</p>
+</body>
+</html>
