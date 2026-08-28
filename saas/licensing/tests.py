@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from accounts.models import License
-from .models import LicensedDevice
+from .models import AuditReport, LicensedDevice
 
 
 class LicenseActivationTests(APITestCase):
@@ -185,4 +185,82 @@ class LicenseActivationTests(APITestCase):
         self.assertEqual(
             response.data["error"],
             "Device ID is required.",
+        )
+
+
+class AuditReportModelTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="audit_user",
+            password="TestPassword123!",
+        )
+
+        self.license = License.objects.get(user=self.user)
+
+        self.device = LicensedDevice.objects.create(
+            license=self.license,
+            device_id="PC-AUDIT-001",
+        )
+
+    def test_create_audit_report(self):
+        report = AuditReport.objects.create(
+            device=self.device,
+            score=90,
+            summary={
+                "total_findings": 1,
+                "high": 0,
+                "medium": 1,
+                "low": 0,
+            },
+            findings=[
+                {
+                    "risk": "medium",
+                    "reason": "BitLocker protection is disabled.",
+                }
+            ],
+            recommendations=[
+                {
+                    "risk": "medium",
+                    "reason": "BitLocker protection is disabled.",
+                    "recommendation": "Enable BitLocker protection.",
+                }
+            ],
+        )
+
+        self.assertEqual(report.device, self.device)
+        self.assertEqual(report.score, 90)
+        self.assertEqual(report.summary["medium"], 1)
+        self.assertEqual(len(report.findings), 1)
+        self.assertEqual(len(report.recommendations), 1)
+
+    def test_audit_reports_are_ordered_by_newest_first(self):
+        older_report = AuditReport.objects.create(
+            device=self.device,
+            score=80,
+        )
+
+        newer_report = AuditReport.objects.create(
+            device=self.device,
+            score=95,
+        )
+
+        reports = list(
+            AuditReport.objects.filter(device=self.device)
+        )
+
+        self.assertEqual(reports[0], newer_report)
+        self.assertEqual(reports[1], older_report)
+
+    def test_deleting_device_deletes_audit_reports(self):
+        AuditReport.objects.create(
+            device=self.device,
+            score=90,
+        )
+
+        self.device.delete()
+
+        self.assertFalse(
+            AuditReport.objects.filter(
+                device_id=self.device.pk
+            ).exists()
         )
