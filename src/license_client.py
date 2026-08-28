@@ -115,3 +115,70 @@ def activate_device(
             "activated": False,
             "error": "Unable to connect to the license server.",
         }
+
+
+DEFAULT_AUDIT_REPORT_API_URL = (
+    "http://127.0.0.1:8000/api/license/audit/report/"
+)
+
+
+def submit_audit_report(
+    key,
+    device_id,
+    report,
+    api_url=DEFAULT_AUDIT_REPORT_API_URL,
+):
+    """
+    Submit a completed SystAudit report to the SaaS API.
+    """
+
+    payload = json.dumps(
+        {
+            "key": key,
+            "device_id": device_id,
+            "score": report.get("score"),
+            "summary": report.get("summary", {}),
+            "findings": report.get("findings", []),
+            "recommendations": report.get("recommendations", []),
+        }
+    ).encode("utf-8")
+
+    request = Request(
+        api_url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+            return {
+                "saved": bool(data.get("saved", False)),
+                "message": data.get("message"),
+                "report_id": data.get("report_id"),
+                "device_id": data.get("device_id"),
+                "score": data.get("score"),
+                "created_at": data.get("created_at"),
+            }
+
+    except HTTPError as error:
+        try:
+            data = json.loads(error.read().decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            data = {}
+
+        return {
+            "saved": False,
+            "error": data.get(
+                "error",
+                "Unable to submit audit report.",
+            ),
+        }
+
+    except (URLError, TimeoutError):
+        return {
+            "saved": False,
+            "error": "Unable to connect to the license server.",
+        }
