@@ -23,3 +23,22 @@ class LicensedDevice(models.Model):
 
     def __str__(self):
         return f"{self.license.key} - {self.device_id}"
+
+
+class AuditReport(models.Model):
+    device = models.ForeignKey(
+        LicensedDevice,
+        on_delete=models.CASCADE,
+        related_name="audit_reports",
+    )
+    score = models.PositiveIntegerField()
+    summary = models.JSONField(default=dict)
+    findings = models.JSONField(default=list)
+    recommendations = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.device.device_id} - {self.score}/100"
