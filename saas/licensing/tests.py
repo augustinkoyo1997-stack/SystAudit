@@ -264,3 +264,172 @@ class AuditReportModelTests(APITestCase):
                 device_id=self.device.pk
             ).exists()
         )
+
+
+class AuditReportAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="report_user",
+            password="TestPassword123!",
+        )
+
+        self.license = License.objects.get(user=self.user)
+        self.license.plan = License.PLAN_PREMIUM
+        self.license.is_active = True
+        self.license.max_devices = 1
+        self.license.expires_at = None
+        self.license.save()
+
+        self.device = LicensedDevice.objects.create(
+            license=self.license,
+            device_id="PC-REPORT-001",
+        )
+
+        self.url = "/api/license/audit/report/"
+
+        self.payload = {
+            "key": str(self.license.key),
+            "device_id": self.device.device_id,
+            "score": 90,
+            "summary": {
+                "total_findings": 1,
+                "high": 0,
+                "medium": 1,
+                "low": 0,
+            },
+            "findings": [
+                {
+                    "risk": "medium",
+                    "reason": "BitLocker protection is disabled.",
+                }
+            ],
+            "recommendations": [
+                {
+                    "risk": "medium",
+                    "reason": "BitLocker protection is disabled.",
+                    "recommendation": "Enable BitLocker protection.",
+                }
+            ],
+        }
+
+    def test_submit_audit_report_success(self):
+        response = self.client.post(
+            self.url,
+            self.payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["saved"])
+        self.assertEqual(
+            response.data["device_id"],
+            "PC-REPORT-001",
+        )
+        self.assertEqual(response.data["score"], 90)
+
+        self.assertTrue(
+            AuditReport.objects.filter(
+                device=self.device,
+                score=90,
+            ).exists()
+        )
+
+    def test_submit_audit_report_rejects_unknown_device(self):
+        payload = {
+            **self.payload,
+            "device_id": "UNKNOWN-DEVICE",
+        }
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(response.data["saved"])
+        self.assertEqual(
+            response.data["error"],
+            "Device is not authorized for this license.",
+        )
+
+        self.assertEqual(
+            AuditReport.objects.count(),
+            0,
+        )
+
+    def test_submit_audit_report_rejects_invalid_license(self):
+        payload = {
+            **self.payload,
+            "key": "00000000-0000-0000-0000-000000000000",
+        }
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.data["saved"])
+        self.assertEqual(
+            response.data["error"],
+            "Invalid license.",
+        )
+
+    def test_submit_audit_report_rejects_invalid_score(self):
+        payload = {
+            **self.payload,
+            "score": 101,
+        }
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["saved"])
+        self.assertEqual(
+            response.data["error"],
+            "Score must be between 0 and 100.",
+        )
+
+    def test_submit_audit_report_requires_license_key(self):
+        payload = {
+            **self.payload,
+        }
+        payload.pop("key")
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["saved"])
+        self.assertEqual(
+            response.data["error"],
+            "License key is required.",
+        )
+
+    def test_submit_audit_report_requires_device_id(self):
+        payload = {
+            **self.payload,
+        }
+        payload.pop("device_id")
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["saved"])
+        self.assertEqual(
+            response.data["error"],
+            "Device ID is required.",
+        )
