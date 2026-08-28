@@ -72,7 +72,10 @@ def print_security_report(report):
 def run_protected_audit(license_key, output_file="sysaudit_report.json"):
     """Run and export a security audit only if the license is valid."""
 
-    license_result = check_license(license_key)
+    license_result = check_license(
+    license_key,
+    activate=True,
+    )
 
     if not license_result.get("allowed", False):
         print("License validation failed.")
