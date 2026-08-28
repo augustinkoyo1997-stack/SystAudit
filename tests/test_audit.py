@@ -1,4 +1,4 @@
-from src.audit import run_security_audit
+from src.audit import run_protected_audit, run_security_audit
 
 
 def test_run_security_audit():
@@ -52,4 +52,116 @@ def test_run_security_audit_findings_and_recommendations():
 
     for recommendation in result["recommendations"]:
         assert isinstance(recommendation, dict)
-        
+
+
+def test_run_protected_audit_allows_valid_license(monkeypatch, tmp_path):
+    fake_report = {
+        "score": 90,
+        "summary": {
+            "total_findings": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+        },
+        "findings": [],
+        "recommendations": [],
+    }
+
+    def fake_check_license(key, activate=False, device_id=None):
+        assert key == "TEST-LICENSE"
+        assert activate is True
+
+        return {
+            "allowed": True,
+            "license": key,
+            "plan": "premium",
+            "max_devices": 2,
+            "expires_at": None,
+            "device_id": "DEVICE-123",
+            "devices_used": 1,
+        }
+
+    monkeypatch.setattr(
+        "src.audit.check_license",
+        fake_check_license,
+    )
+    monkeypatch.setattr(
+        "src.audit.run_security_audit",
+        lambda: fake_report,
+    )
+
+    output_file = tmp_path / "report.json"
+
+    result = run_protected_audit(
+        "TEST-LICENSE",
+        output_file=str(output_file),
+    )
+
+    assert result == fake_report
+    assert output_file.exists()
+
+
+def test_run_protected_audit_blocks_invalid_license(monkeypatch, tmp_path):
+    def fake_check_license(key, activate=False, device_id=None):
+        assert activate is True
+
+        return {
+            "allowed": False,
+            "reason": "Invalid license.",
+        }
+
+    def fail_audit():
+        raise AssertionError("Audit must not run.")
+
+    monkeypatch.setattr(
+        "src.audit.check_license",
+        fake_check_license,
+    )
+    monkeypatch.setattr(
+        "src.audit.run_security_audit",
+        fail_audit,
+    )
+
+    output_file = tmp_path / "report.json"
+
+    result = run_protected_audit(
+        "INVALID-LICENSE",
+        output_file=str(output_file),
+    )
+
+    assert result is None
+    assert not output_file.exists()
+
+
+def test_run_protected_audit_blocks_device_limit(monkeypatch, tmp_path):
+    def fake_check_license(key, activate=False, device_id=None):
+        assert activate is True
+
+        return {
+            "allowed": False,
+            "reason": "Maximum number of devices reached.",
+            "devices_used": 1,
+            "max_devices": 1,
+        }
+
+    def fail_audit():
+        raise AssertionError("Audit must not run.")
+
+    monkeypatch.setattr(
+        "src.audit.check_license",
+        fake_check_license,
+    )
+    monkeypatch.setattr(
+        "src.audit.run_security_audit",
+        fail_audit,
+    )
+
+    output_file = tmp_path / "report.json"
+
+    result = run_protected_audit(
+        "TEST-LICENSE",
+        output_file=str(output_file),
+    )
+
+    assert result is None
+    assert not output_file.exists()
