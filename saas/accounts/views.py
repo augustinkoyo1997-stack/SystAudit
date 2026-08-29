@@ -2,7 +2,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.shortcuts import redirect, render
-
+from licensing.models import AuditReport
 
 def register_view(request):
     if request.user.is_authenticated:
@@ -57,15 +57,24 @@ def dashboard_view(request):
     license_obj = request.user.license
     license_key = str(license_obj.key)
 
+    devices = license_obj.devices.all()
+    latest_audit = (
+        AuditReport.objects
+        .filter(device__license=license_obj)
+        .select_related("device")
+        .first()
+    )
+
     return render(
         request,
         "accounts/dashboard.html",
         {
             "user": request.user,
             "license": license_obj,
-            "devices": license_obj.devices.all(),
-            "devices_used": license_obj.devices.count(),
+            "devices": devices,
+            "devices_used": devices.count(),
             "license_key": license_key,
             "license_key_masked": f"{license_key[:8]}-****-****-****-****",
+            "latest_audit": latest_audit,
         },
     )
