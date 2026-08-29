@@ -218,6 +218,23 @@
         font-size: 13px;
     }
 
+    .audit-score {
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .audit-score-good {
+        color: #16a34a;
+    }
+
+    .audit-score-warning {
+        color: #d97706;
+    }
+
+    .audit-score-danger {
+        color: #dc2626;
+    }
+
     @media (max-width: 800px) {
         .cards {
             grid-template-columns: 1fr;
@@ -237,7 +254,7 @@
         }
     }
 
-        .license-key-box {
+    .license-key-box {
         position: relative;
     }
 
@@ -287,9 +304,11 @@
         <span>SystAudit</span>
     </div>
 
+```
 <a class="logout" href="{% url 'logout' %}">
     Se d&eacute;connecter
 </a>
+```
 
 </header>
 
@@ -302,140 +321,222 @@
 
 <section class="cards">
 
-    <div class="card">
-        <div class="card-label">Votre plan</div>
-        <div class="card-value free">
-            {{ license.plan|upper }}
-        </div>
+```
+<div class="card">
+    <div class="card-label">Votre plan</div>
+    <div class="card-value free">
+        {{ license.plan|upper }}
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-label">&Eacute;tat de la licence</div>
-        <div class="card-value active">
-            {% if license.is_active %}
-                &#9679; Active
-            {% else %}
-                &#9679; Inactive
-            {% endif %}
-        </div>
+<div class="card">
+    <div class="card-label">&Eacute;tat de la licence</div>
+    <div class="card-value active">
+        {% if license.is_active %}
+            &#9679; Active
+        {% else %}
+            &#9679; Inactive
+        {% endif %}
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-label">Appareils</div>
-        <div class="card-value">
-            {{ devices_used }} / {{ license.max_devices }}
-        </div>
+<div class="card">
+    <div class="card-label">Appareils</div>
+    <div class="card-value">
+        {{ devices_used }} / {{ license.max_devices }}
     </div>
+</div>
+```
 
 </section>
 
 <section class="license-card">
     <h2>Informations de licence</h2>
 
+```
+<div class="license-grid">
+
+    <div class="info license-key-box">
+        <span>Cl&eacute; de licence</span>
+
+        <div class="license-key-row">
+            <strong id="license-key">
+                {{ license_key_masked }}
+            </strong>
+
+            <button
+                type="button"
+                class="copy-button"
+                onclick="copyLicenseKey()"
+            >
+                Copier
+            </button>
+        </div>
+
+        <input
+            type="hidden"
+            id="full-license-key"
+            value="{{ license_key }}"
+        >
+
+        <span id="copy-message" class="copy-message"></span>
+    </div>
+
+    <div class="info">
+        <span>Plan</span>
+        <strong>{{ license.plan|upper }}</strong>
+    </div>
+
+    <div class="info">
+        <span>Statut</span>
+        <strong>
+            {% if license.is_active %}
+                Active
+            {% else %}
+                Inactive
+            {% endif %}
+        </strong>
+    </div>
+
+    <div class="info">
+        <span>Expiration</span>
+        <strong>
+            {% if license.expires_at %}
+                {{ license.expires_at }}
+            {% else %}
+                Aucune
+            {% endif %}
+        </strong>
+    </div>
+
+</div>
+
+{% if license.plan == "free" %}
+    <a href="#" class="upgrade">
+        Passer &agrave; Premium
+    </a>
+{% endif %}
+```
+
+</section>
+
+<section class="license-card">
+    <h2>Dernier audit</h2>
+
+```
+{% if latest_audit %}
+
     <div class="license-grid">
 
-        <div class="info license-key-box">
-            <span>Cl&eacute; de licence</span>
-
-            <div class="license-key-row">
-                <strong id="license-key">
-                    {{ license_key_masked }}
-                </strong>
-
-                <button
-                    type="button"
-                    class="copy-button"
-                    onclick="copyLicenseKey()"
-                >
-                    Copier
-                </button>
-            </div>
-
-            <input
-                type="hidden"
-                id="full-license-key"
-                value="{{ license_key }}"
-            >
-
-            <span id="copy-message" class="copy-message"></span>
-        </div>
-
         <div class="info">
-            <span>Plan</span>
-            <strong>{{ license.plan|upper }}</strong>
-        </div>
+            <span>Security Score</span>
 
-        <div class="info">
-            <span>Statut</span>
-            <strong>
-                {% if license.is_active %}
-                    Active
+            <strong
+                class="audit-score
+                {% if latest_audit.score >= 80 %}
+                    audit-score-good
+                {% elif latest_audit.score >= 50 %}
+                    audit-score-warning
                 {% else %}
-                    Inactive
-                {% endif %}
+                    audit-score-danger
+                {% endif %}"
+            >
+                {{ latest_audit.score }} / 100
             </strong>
         </div>
 
         <div class="info">
-            <span>Expiration</span>
+            <span>Appareil</span>
             <strong>
-                {% if license.expires_at %}
-                    {{ license.expires_at }}
-                {% else %}
-                    Aucune
-                {% endif %}
+                {{ latest_audit.device.device_id }}
+            </strong>
+        </div>
+
+        <div class="info">
+            <span>HIGH</span>
+            <strong>
+                {{ latest_audit.summary.high|default:"0" }}
+            </strong>
+        </div>
+
+        <div class="info">
+            <span>MEDIUM</span>
+            <strong>
+                {{ latest_audit.summary.medium|default:"0" }}
+            </strong>
+        </div>
+
+        <div class="info">
+            <span>LOW</span>
+            <strong>
+                {{ latest_audit.summary.low|default:"0" }}
+            </strong>
+        </div>
+
+        <div class="info">
+            <span>Date du dernier audit</span>
+            <strong>
+                {{ latest_audit.created_at }}
             </strong>
         </div>
 
     </div>
 
-    {% if license.plan == "free" %}
-        <a href="#" class="upgrade">
-                Passer &agrave; Premium
-        </a>
-    {% endif %}
+{% else %}
+
+    <div class="empty-state">
+        Aucun audit n'est encore disponible.
+    </div>
+
+{% endif %}
+```
+
 </section>
 
 <section class="license-card">
     <h2>Appareils activ&eacute;s</h2>
 
-    {% if devices %}
-        <div class="device-list">
+```
+{% if devices %}
+    <div class="device-list">
 
-            {% for device in devices %}
-                <div class="device">
+        {% for device in devices %}
+            <div class="device">
 
-                    <div class="device-header">
-                        <div class="device-name">
-                            {{ device.device_id }}
-                        </div>
-
-                        <div class="device-status">
-                            &#9679; Activ&eacute;
-                        </div>
+                <div class="device-header">
+                    <div class="device-name">
+                        {{ device.device_id }}
                     </div>
 
-                    <div class="device-info">
-                            Derni&egrave;re activit&eacute; :
-                        {{ device.last_seen_at }}
+                    <div class="device-status">
+                        &#9679; Activ&eacute;
                     </div>
-
                 </div>
-            {% endfor %}
 
-        </div>
-    {% else %}
-        <div class="empty-state">
-            Aucun appareil n'est encore activ&eacute; sur cette licence.
-        </div>
-    {% endif %}
+                <div class="device-info">
+                    Derni&egrave;re activit&eacute; :
+                    {{ device.last_seen_at }}
+                </div>
+
+            </div>
+        {% endfor %}
+
+    </div>
+{% else %}
+    <div class="empty-state">
+        Aucun appareil n'est encore activ&eacute; sur cette licence.
+    </div>
+{% endif %}
+```
+
 </section>
 
 <div class="footer">
-        &copy; 2026 SystAudit &mdash; Security made simple
+    &copy; 2026 SystAudit &mdash; Security made simple
 </div>
 
 </main>
+
 <script>
     async function copyLicenseKey() {
         const key = document.getElementById("full-license-key").value;
