@@ -4,9 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - SystAudit</title>
 
 ```
+<title>Connexion — SystAudit</title>
+
 <style>
     * {
         box-sizing: border-box;
@@ -14,133 +15,246 @@
         padding: 0;
     }
 
+    :root {
+        --bg: #06101d;
+        --card: rgba(12, 25, 41, 0.96);
+        --input: #081522;
+        --border: #263b52;
+        --text: #f5f9ff;
+        --muted: #8ea3b8;
+        --primary: #00aaff;
+        --primary-dark: #006cff;
+        --danger: #ff8d9a;
+        --success: #78dec6;
+    }
+
     body {
-        font-family: Arial, Helvetica, sans-serif;
         min-height: 100vh;
+        font-family: Arial, Helvetica, sans-serif;
+        background:
+            radial-gradient(
+                circle at 10% 10%,
+                rgba(0, 126, 255, 0.20),
+                transparent 32%
+            ),
+            radial-gradient(
+                circle at 90% 90%,
+                rgba(0, 210, 180, 0.12),
+                transparent 32%
+            ),
+            var(--bg);
+        color: var(--text);
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #0f172a, #1e3a8a);
-        color: #1e293b;
+        padding: 40px 16px;
     }
 
-    .login-container {
+    .container {
         width: 100%;
-        max-width: 420px;
-        margin: 20px;
+        max-width: 460px;
     }
 
-    .login-card {
-        background: #ffffff;
-        border-radius: 18px;
-        padding: 40px;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    .brand {
+        text-align: center;
+        margin-bottom: 24px;
     }
 
     .logo {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-
-    .logo-icon {
-        width: 64px;
-        height: 64px;
-        margin: 0 auto 15px;
-        border-radius: 16px;
-        background: #2563eb;
+        width: 68px;
+        height: 68px;
+        margin: 0 auto 14px;
+        border-radius: 19px;
+        background: linear-gradient(
+            135deg,
+            var(--primary),
+            var(--primary-dark)
+        );
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 30px;
-        font-weight: bold;
+        font-size: 32px;
+        font-weight: 800;
+        box-shadow: 0 14px 40px rgba(0, 114, 255, 0.32);
     }
 
-    .logo h1 {
-        font-size: 28px;
-        color: #0f172a;
+    .brand h1 {
+        font-size: 29px;
+        letter-spacing: 0.4px;
+    }
+
+    .brand p {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .card {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 22px;
+        padding: 34px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(14px);
+    }
+
+    .card h2 {
+        font-size: 24px;
         margin-bottom: 8px;
     }
 
-    .logo p {
-        color: #64748b;
+    .subtitle {
+        color: var(--muted);
         font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 27px;
     }
 
-    form p {
-        margin-bottom: 18px;
+    .field {
+        margin-bottom: 21px;
     }
 
     label {
         display: block;
-        margin-bottom: 7px;
+        margin-bottom: 8px;
+        color: #dce8f5;
         font-size: 14px;
-        font-weight: 600;
-        color: #334155;
+        font-weight: 700;
     }
 
-    input {
+    input[type="text"],
+    input[type="password"] {
         width: 100%;
-        padding: 13px 14px;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        font-size: 15px;
-        outline: none;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    input:focus {
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-    }
-
-    .errorlist {
-        list-style: none;
-        color: #dc2626;
-        font-size: 13px;
-        margin-bottom: 12px;
-    }
-
-    .login-button {
-        width: 100%;
-        border: none;
-        padding: 14px;
-        border-radius: 10px;
-        background: #2563eb;
+        padding: 14px 15px;
+        border-radius: 11px;
+        border: 1px solid var(--border);
+        background: var(--input);
         color: white;
         font-size: 15px;
-        font-weight: 600;
+        outline: none;
+        transition:
+            border-color 0.2s,
+            box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.10);
+    }
+
+    input::placeholder {
+        color: #52677c;
+    }
+
+    .errors {
+        margin-bottom: 18px;
+        padding: 11px 13px;
+        border-radius: 10px;
+        background: rgba(220, 53, 69, 0.10);
+        border: 1px solid rgba(220, 53, 69, 0.30);
+        color: var(--danger);
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .errors ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .errors li {
+        margin: 2px 0;
+    }
+
+    .button {
+        width: 100%;
+        border: none;
+        border-radius: 11px;
+        padding: 14px;
+        margin-top: 4px;
+        background: linear-gradient(
+            135deg,
+            var(--primary),
+            var(--primary-dark)
+        );
+        color: white;
+        font-size: 15px;
+        font-weight: 700;
         cursor: pointer;
-        transition: background 0.2s, transform 0.2s;
+        transition:
+            transform 0.2s,
+            box-shadow 0.2s;
     }
 
-    .login-button:hover {
-        background: #1d4ed8;
+    .button:hover {
         transform: translateY(-1px);
+        box-shadow: 0 12px 30px rgba(0, 114, 255, 0.28);
     }
 
-    .register-link {
+    .button:active {
+        transform: translateY(0);
+    }
+
+    .security {
+        margin-top: 21px;
+        padding: 12px 14px;
+        border-radius: 11px;
+        background: rgba(0, 200, 150, 0.06);
+        border: 1px solid rgba(0, 200, 150, 0.16);
+        color: var(--success);
+        font-size: 12px;
         text-align: center;
-        margin-top: 25px;
-        color: #64748b;
+    }
+
+    .register {
+        text-align: center;
+        margin-top: 23px;
+        color: var(--muted);
         font-size: 14px;
     }
 
-    .register-link a {
-        color: #2563eb;
+    .register a {
+        color: #42c4ff;
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 700;
     }
 
-    .register-link a:hover {
+    .register a:hover {
         text-decoration: underline;
     }
 
-    .footer {
+    footer {
         text-align: center;
-        margin-top: 20px;
-        color: rgba(255, 255, 255, 0.7);
+        color: #5d7185;
         font-size: 12px;
+        margin-top: 22px;
+    }
+
+    .field-icon {
+        margin-right: 6px;
+    }
+
+    @media (max-width: 500px) {
+        body {
+            padding: 25px 14px;
+        }
+
+        .card {
+            padding: 26px 20px;
+            border-radius: 18px;
+        }
+
+        .brand h1 {
+            font-size: 25px;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            font-size: 28px;
+        }
     }
 </style>
 ```
@@ -148,40 +262,107 @@
 </head>
 
 <body>
-    <div class="login-container">
+
+<div class="container">
 
 ```
-    <div class="login-card">
+<div class="brand">
+    <div class="logo">S</div>
 
-        <div class="logo">
-            <div class="logo-icon">S</div>
-            <h1>SystAudit</h1>
-            <p>Protection et audit de votre système</p>
+    <h1>SystAudit</h1>
+
+    <p>
+        Security Audit &amp; Monitoring Platform
+    </p>
+</div>
+
+<div class="card">
+
+    <h2>Bienvenue 👋</h2>
+
+    <p class="subtitle">
+        Connectez-vous à votre espace SystAudit pour surveiller
+        et sécuriser vos systèmes.
+    </p>
+
+    {% if form.non_field_errors %}
+        <div class="errors">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="field">
+            <label for="{{ form.username.id_for_label }}">
+                <span class="field-icon">👤</span>
+                Nom d'utilisateur
+            </label>
+
+            <input
+                type="text"
+                name="{{ form.username.html_name }}"
+                id="{{ form.username.id_for_label }}"
+                placeholder="Votre nom d'utilisateur"
+                autocomplete="username"
+                required
+                value="{{ form.username.value|default:'' }}"
+            >
+
+            {% if form.username.errors %}
+                <div class="errors">
+                    {{ form.username.errors }}
+                </div>
+            {% endif %}
         </div>
 
-        <form method="post">
-            {% csrf_token %}
+        <div class="field">
+            <label for="{{ form.password.id_for_label }}">
+                <span class="field-icon">🔐</span>
+                Mot de passe
+            </label>
 
-            {{ form.as_p }}
+            <input
+                type="password"
+                name="{{ form.password.html_name }}"
+                id="{{ form.password.id_for_label }}"
+                placeholder="Votre mot de passe"
+                autocomplete="current-password"
+                required
+            >
 
-            <button type="submit" class="login-button">
-                Se connecter
-            </button>
-        </form>
-
-        <div class="register-link">
-            Pas encore de compte ?
-            <a href="{% url 'register' %}">Créer un compte</a>
+            {% if form.password.errors %}
+                <div class="errors">
+                    {{ form.password.errors }}
+                </div>
+            {% endif %}
         </div>
 
+        <button type="submit" class="button">
+            Se connecter
+        </button>
+    </form>
+
+    <div class="security">
+        🛡️ Connexion sécurisée par SystAudit.
     </div>
 
-    <div class="footer">
-        © 2026 SystAudit — Security made simple
+    <div class="register">
+        Pas encore de compte ?
+        <a href="{% url 'register' %}">
+            Créer un compte
+        </a>
     </div>
 
 </div>
+
+<footer>
+    © 2026 SystAudit — Security Audit Platform
+</footer>
 ```
+
+</div>
 
 </body>
 </html>
