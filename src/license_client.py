@@ -1,11 +1,26 @@
 import json
+import os
 import uuid
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-DEFAULT_API_URL = "http://127.0.0.1:8000/api/license/validate/"
-DEFAULT_ACTIVATE_API_URL = "http://127.0.0.1:8000/api/license/activate/"
+DEFAULT_API_BASE_URL = os.environ.get(
+    "SYSAUDIT_API_URL",
+    "http://127.0.0.1:8000",
+).rstrip("/")
+
+DEFAULT_API_URL = (
+    f"{DEFAULT_API_BASE_URL}/api/license/validate/"
+)
+
+DEFAULT_ACTIVATE_API_URL = (
+    f"{DEFAULT_API_BASE_URL}/api/license/activate/"
+)
+
+DEFAULT_AUDIT_REPORT_API_URL = (
+    f"{DEFAULT_API_BASE_URL}/api/license/audit/report/"
+)
 
 
 def get_device_id():
@@ -116,10 +131,6 @@ def activate_device(
             "error": "Unable to connect to the license server.",
         }
 
-
-DEFAULT_AUDIT_REPORT_API_URL = (
-    "http://127.0.0.1:8000/api/license/audit/report/"
-)
 
 
 def submit_audit_report(
