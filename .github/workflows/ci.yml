@@ -6,6 +6,7 @@ on:
       - master
       - feature/network-info
       - feature/saas-foundation
+      - feature/dashboard-ui
   pull_request:
     branches:
       - master
@@ -16,6 +17,16 @@ jobs:
 
     env:
       DJANGO_SECRET_KEY: "ci-only-development-key-not-for-production"
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: "127.0.0.1,localhost"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "http://127.0.0.1:8000,http://localhost:8000"
+
+      POSTGRES_DB: "sysaudit_db"
+      POSTGRES_USER: "sysaudit_user"
+      POSTGRES_PASSWORD: "ci-test-password"
+      POSTGRES_HOST: "localhost"
+      POSTGRES_PORT: "5432"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,6 +35,72 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+
+      - name: Start PostgreSQL
+        shell: pwsh
+        run: |
+          $service = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (-not $service) {
+            Write-Error "PostgreSQL service not found."
+            exit 1
+          }
+
+          if ($service.Status -ne "Running") {
+            Start-Service -Name $service.Name
+          }
+
+          $service = Get-Service -Name $service.Name
+
+          Write-Host "PostgreSQL service: $($service.Name)"
+          Write-Host "Status: $($service.Status)"
+
+      - name: Configure PostgreSQL
+        shell: pwsh
+        run: |
+          $psql = Get-ChildItem "C:\Program Files\PostgreSQL\*\bin\psql.exe" |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $psql) {
+            Write-Error "psql.exe not found."
+            exit 1
+          }
+
+          $env:PGPASSWORD = "root"
+
+          & $psql `
+            -h localhost `
+            -U postgres `
+            -d postgres `
+            -c "DO `$`$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sysaudit_user') THEN CREATE ROLE sysaudit_user LOGIN PASSWORD 'ci-test-password'; END IF; END `$`$;"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create/configure PostgreSQL user."
+            exit 1
+          }
+
+          & $psql `
+            -h localhost `
+            -U postgres `
+            -d postgres `
+            -c "ALTER ROLE sysaudit_user CREATEDB;"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to grant CREATEDB privilege."
+            exit 1
+          }
+
+          & $psql `
+            -h localhost `
+            -U postgres `
+            -d postgres `
+            -c "SELECT 'CREATE DATABASE sysaudit_db OWNER sysaudit_user' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'sysaudit_db')\gexec"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create PostgreSQL database."
+            exit 1
+          }
 
       - name: Install dependencies
         run: |
