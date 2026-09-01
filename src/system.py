@@ -55,18 +55,26 @@ def get_system_info():
         })
 
 
-    services = []
+        services = []
 
-    for service in psutil.win_service_iter():
-        try:
-            services.append({
-                "name": service.name(),
-                "display_name": service.display_name(),
-                "status": service.status(),
-            })
-
-        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, FileNotFoundError):
-            continue
+    if hasattr(psutil, "win_service_iter"):
+        for service in psutil.win_service_iter():
+            try:
+                services.append({
+                    "name": service.name(),
+                    "display_name": service.display_name(),
+                    "status": service.status(),
+                    "start_type": service.start_type(),
+                    "username": service.username(),
+                    "pid": service.pid(),
+                })
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+                OSError,
+                FileNotFoundError,
+            ):
+                continue
 
     return {
         "hostname": socket.gethostname(),
@@ -89,16 +97,19 @@ def get_system_info():
         "disk_used": disk.used,
         "disk_free": disk.free,
         "disk_percent": disk.percent,
+
         # Partitions information
         "partitions": partitions,
+
         # Process information
         "processes": processes,
+
         # User information
         "users": users,
+
         # Service information
         "services": services,
     }
-
 
 if __name__ == "__main__":
     print(get_system_info())
