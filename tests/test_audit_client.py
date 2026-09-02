@@ -97,7 +97,7 @@ def test_submit_audit_report_sends_correct_payload(monkeypatch):
     assert captured["timeout"] == 15
 
     assert captured["json"] == {
-        "license_key": "LICENSE-123",
+       "key": "LICENSE-123",
         "device_id": "DEVICE-123",
         "score": 85,
         "summary": audit_result["summary"],
