@@ -157,14 +157,20 @@ def get_network_routes():
 
 def _get_address_family(address_family):
     """Return a human-readable network address family."""
+    if address_family == getattr(psutil, "AF_LINK", None):
+        return "MAC"
+
+    if address_family == socket.AF_INET:
+        return "IPv4"
+
+    if address_family == socket.AF_INET6:
+        return "IPv6"
+
     family = str(address_family)
 
+    # Compatibility with platforms/environments using numeric values.
     if family == "-1":
         return "MAC"
-    if family == "2":
-        return "IPv4"
-    if family == "23":
-        return "IPv6"
 
     return family
 
