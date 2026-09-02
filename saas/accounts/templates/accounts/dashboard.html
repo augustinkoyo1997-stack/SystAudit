@@ -711,113 +711,211 @@
 
     </section>
 
+<!-- =========================
+     LAST AUDIT
+========================== -->
 
-    <!-- =========================
-         LAST AUDIT
-    ========================== -->
+<section class="section">
 
-    <section class="section">
+    <div class="section-header">
+        <div>
+            <h2>📊 Dernier audit</h2>
+            <p class="section-description">
+                Résultats de votre dernier audit de sécurité.
+            </p>
+        </div>
+    </div>
 
-        <div class="section-header">
-            <div>
-                <h2>📊 Dernier audit</h2>
-                <p class="section-description">
-                    Résultats de votre dernier audit de sécurité.
-                </p>
+    {% if latest_audit %}
+
+        <div class="audit-grid">
+
+            <!-- SCORE -->
+            <div class="audit-score-box">
+
+                <div class="audit-score-label">
+                    Security Score
+                </div>
+
+                <div class="audit-score
+                    {% if latest_audit.score >= 80 %}
+                        audit-score-good
+                    {% elif latest_audit.score >= 50 %}
+                        audit-score-warning
+                    {% else %}
+                        audit-score-danger
+                    {% endif %}
+                ">
+                    {{ latest_audit.score }} / 100
+                </div>
+
             </div>
+
+
+            <!-- APPAREIL -->
+            <div class="info">
+
+                <span>🖥️ Appareil</span>
+
+                <strong>
+                    {{ latest_audit.device.device_id }}
+                </strong>
+
+            </div>
+
+
+            <!-- CONTRÔLES -->
+            <div class="info">
+
+                <span>📋 Contrôles</span>
+
+                <strong>
+                    {{ latest_audit.summary.total_checks|default:"0" }}
+                </strong>
+
+            </div>
+
+
+            <!-- RÉUSSIS -->
+            <div class="info">
+
+                <span>✅ Contrôles réussis</span>
+
+                <strong class="severity-low">
+                    {{ latest_audit.summary.passed|default:"0" }}
+                </strong>
+
+            </div>
+
+
+            <!-- AVERTISSEMENTS -->
+            <div class="info">
+
+                <span>⚠️ Avertissements</span>
+
+                <strong class="severity-medium">
+                    {{ latest_audit.summary.warnings|default:"0" }}
+                </strong>
+
+            </div>
+
+
+            <!-- CRITIQUES -->
+            <div class="info">
+
+                <span>🔴 Critiques</span>
+
+                <strong class="severity-high">
+                    {{ latest_audit.summary.critical|default:"0" }}
+                </strong>
+
+            </div>
+
+
+            <!-- DATE -->
+            <div class="info">
+
+                <span>📅 Date du dernier audit</span>
+
+                <strong>
+                    {{ latest_audit.created_at }}
+                </strong>
+
+            </div>
+
         </div>
 
 
-        {% if latest_audit %}
+        <!-- FINDINGS -->
 
-            <div class="audit-grid">
+        {% if latest_audit.findings %}
 
-                <div class="audit-score-box">
+            <div style="margin-top: 20px;">
 
-                    <div class="audit-score-label">
-                        Security Score
-                    </div>
+                <h3 style="font-size: 16px; margin-bottom: 12px;">
+                    🔎 Findings
+                </h3>
 
-                    <div class="audit-score
-                        {% if latest_audit.score >= 80 %}
-                            audit-score-good
-                        {% elif latest_audit.score >= 50 %}
-                            audit-score-warning
-                        {% else %}
-                            audit-score-danger
-                        {% endif %}
-                    ">
-                        {{ latest_audit.score }} / 100
-                    </div>
+                <div class="device-list">
 
-                </div>
+                    {% for finding in latest_audit.findings %}
 
+                        <div class="device">
 
-                <div class="info">
+                            <div class="device-header">
 
-                    <span>Appareil</span>
+                                <div class="device-name">
+                                    {{ finding.title }}
+                                </div>
 
-                    <strong>
-                        {{ latest_audit.device.device_id }}
-                    </strong>
+                                <div class="
+                                    device-status
+                                    {% if finding.severity == 'HIGH' %}
+                                        severity-high
+                                    {% elif finding.severity == 'MEDIUM' %}
+                                        severity-medium
+                                    {% else %}
+                                        severity-low
+                                    {% endif %}
+                                ">
+                                    {{ finding.severity }}
+                                </div>
 
-                </div>
+                            </div>
 
+                            <div class="device-info">
+                                {{ finding.description }}
+                            </div>
 
-                <div class="info">
+                        </div>
 
-                    <span>HIGH</span>
-
-                    <strong class="severity-high">
-                        {{ latest_audit.summary.high|default:"0" }}
-                    </strong>
-
-                </div>
-
-
-                <div class="info">
-
-                    <span>MEDIUM</span>
-
-                    <strong class="severity-medium">
-                        {{ latest_audit.summary.medium|default:"0" }}
-                    </strong>
+                    {% endfor %}
 
                 </div>
 
-
-                <div class="info">
-
-                    <span>LOW</span>
-
-                    <strong class="severity-low">
-                        {{ latest_audit.summary.low|default:"0" }}
-                    </strong>
-
-                </div>
-
-
-                <div class="info">
-
-                    <span>Date du dernier audit</span>
-
-                    <strong>
-                        {{ latest_audit.created_at }}
-                    </strong>
-
-                </div>
-
-            </div>
-
-        {% else %}
-
-            <div class="empty-state">
-                🔍 Aucun audit n'est encore disponible.
             </div>
 
         {% endif %}
 
-    </section>
+
+        <!-- RECOMMANDATIONS -->
+
+        {% if latest_audit.recommendations %}
+
+            <div style="margin-top: 20px;">
+
+                <h3 style="font-size: 16px; margin-bottom: 12px;">
+                    💡 Recommandations
+                </h3>
+
+                <div class="device-list">
+
+                    {% for recommendation in latest_audit.recommendations %}
+
+                        <div class="device">
+                            <div class="device-info">
+                                {{ recommendation }}
+                            </div>
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+        {% endif %}
+
+    {% else %}
+
+        <div class="empty-state">
+            🔍 Aucun audit n'est encore disponible.
+        </div>
+
+    {% endif %}
+
+</section>
+
 
 
     <!-- =========================
