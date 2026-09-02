@@ -55,7 +55,7 @@ def get_system_info():
         })
 
 
-        services = []
+    services = []
 
     if hasattr(psutil, "win_service_iter"):
         for service in psutil.win_service_iter():
