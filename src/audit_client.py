@@ -27,7 +27,7 @@ def submit_audit_report(
     report = run_audit()
 
     payload = {
-        "license_key": license_key,
+        "key": license_key,
         "device_id": device_id,
         "score": report["score"],
         "summary": report["summary"],
