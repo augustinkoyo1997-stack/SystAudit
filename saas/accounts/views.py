@@ -62,13 +62,16 @@ def dashboard_view(request):
 
     devices = license_obj.devices.all()
 
-    latest_audit = (
+    audit_history = (
         AuditReport.objects
         .filter(device__license=license_obj)
         .select_related("device")
         .order_by("-created_at")
-        .first()
     )
+
+    latest_audit = audit_history.first()
+
+    audit_history_chart = list(reversed(audit_history[:10]))
 
     return render(
         request,
@@ -81,5 +84,8 @@ def dashboard_view(request):
             "license_key": license_key,
             "license_key_masked": f"{license_key[:8]}-****-****-****-****",
             "latest_audit": latest_audit,
+            "audit_history": audit_history,
+            "audit_count": audit_history.count(),
+            "audit_history_chart": audit_history_chart,
         },
     )
