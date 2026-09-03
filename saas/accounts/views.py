@@ -66,6 +66,7 @@ def dashboard_view(request):
         AuditReport.objects
         .filter(device__license=license_obj)
         .select_related("device")
+        .order_by("-created_at")
         .first()
     )
 

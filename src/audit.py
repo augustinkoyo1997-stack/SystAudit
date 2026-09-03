@@ -1,4 +1,4 @@
-﻿from src.security_analysis import analyze_security
+from src.security_analysis import analyze_security
 from src.security_analysis import calculate_security_score
 from src.security_recommendations import generate_recommendations
 from src.security_report import generate_security_report
