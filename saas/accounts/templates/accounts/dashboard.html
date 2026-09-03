@@ -470,6 +470,15 @@
                 grid-column: span 1;
             }
 
+            .audit-history-item {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .audit-history-bar {
+                width: 100%;
+            }
+
             .topbar-inner {
                 padding: 13px 16px;
             }
@@ -516,6 +525,83 @@
                 align-items: flex-start;
                 flex-direction: column;
             }
+        }
+
+
+        /* =========================
+           AUDIT HISTORY
+        ========================= */
+
+        .audit-history {
+            display: grid;
+            gap: 12px;
+        }
+
+        .audit-history-item {
+            display: grid;
+            grid-template-columns: 90px 1fr auto;
+            align-items: center;
+            gap: 18px;
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.055);
+            border-radius: 13px;
+            padding: 16px;
+            transition: 0.2s;
+        }
+
+        .audit-history-item:hover {
+            border-color: rgba(0, 170, 255, 0.22);
+            transform: translateY(-1px);
+        }
+
+        .audit-history-score {
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .audit-history-details {
+            min-width: 0;
+        }
+
+        .audit-history-device {
+            font-size: 13px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .audit-history-date {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .audit-history-bar {
+            width: 150px;
+            height: 7px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+        }
+
+        .audit-history-bar-fill {
+            height: 100%;
+            max-width: 100%;
+            border-radius: 10px;
+            background: linear-gradient(
+                90deg,
+                var(--primary),
+                var(--success)
+            );
+        }
+
+        .audit-count {
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: rgba(0, 170, 255, 0.10);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -915,6 +1001,93 @@
     {% endif %}
 
 </section>
+
+
+
+    <!-- =========================
+         AUDIT HISTORY
+    ========================== -->
+
+    <section class="section">
+
+        <div class="section-header">
+
+            <div>
+                <h2>📋 Historique des audits</h2>
+
+                <p class="section-description">
+                    Consultez les résultats de vos derniers audits de sécurité.
+                </p>
+            </div>
+
+            {% if audit_count %}
+                <div class="audit-count">
+                    {{ audit_count }} audit{{ audit_count|pluralize }}
+                </div>
+            {% endif %}
+
+        </div>
+
+
+        {% if audit_history %}
+
+            <div class="audit-history">
+
+                {% for audit in audit_history %}
+
+                    <div class="audit-history-item">
+
+                        <div class="
+                            audit-history-score
+                            {% if audit.score >= 80 %}
+                                audit-score-good
+                            {% elif audit.score >= 50 %}
+                                audit-score-warning
+                            {% else %}
+                                audit-score-danger
+                            {% endif %}
+                        ">
+                            {{ audit.score }}/100
+                        </div>
+
+
+                        <div class="audit-history-details">
+
+                            <div class="audit-history-device">
+                                🖥️ {{ audit.device.device_id }}
+                            </div>
+
+                            <div class="audit-history-date">
+                                📅 {{ audit.created_at }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="audit-history-bar">
+
+                            <div
+                                class="audit-history-bar-fill"
+                                style="width: {{ audit.score }}%;"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                🔍 Aucun historique d'audit disponible.
+            </div>
+
+        {% endif %}
+
+    </section>
 
 
 
