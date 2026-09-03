@@ -265,7 +265,7 @@ def get_network_processes():
 
 
 def get_suspicious_ports():
-    """Return listening ports that are commonly considered sensitive."""
+    """Return unique listening ports that are commonly considered sensitive."""
     sensitive_ports = {
         21: ("FTP", "HIGH"),
         23: ("Telnet", "HIGH"),
@@ -279,12 +279,18 @@ def get_suspicious_ports():
     }
 
     suspicious = []
+    seen_ports = set()
 
     for port_info in get_listening_ports():
         port = port_info["port"]
 
         if port not in sensitive_ports:
             continue
+
+        if port in seen_ports:
+            continue
+
+        seen_ports.add(port)
 
         service, risk = sensitive_ports[port]
 

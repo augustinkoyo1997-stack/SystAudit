@@ -203,6 +203,8 @@ def test_get_suspicious_ports():
 
     assert isinstance(result, list)
 
+    ports = []
+
     for item in result:
         assert isinstance(item, dict)
 
@@ -217,3 +219,8 @@ def test_get_suspicious_ports():
         assert item["risk"] in {"LOW", "MEDIUM", "HIGH"}
         assert isinstance(item["local_address"], str)
         assert item["pid"] is None or isinstance(item["pid"], int)
+
+        ports.append(item["port"])
+
+    # A sensitive port must appear only once.
+    assert len(ports) == len(set(ports))
