@@ -52,7 +52,7 @@ def test_approved_remediation_executes_and_is_verified():
     }
 
     remediation = create_remediation_from_finding(finding)
-
+    remediation.is_admin = lambda: True
     remediation.action = lambda: execution.append("executed") or True
     remediation.verify_action = lambda: verification.append("verified") or True
 
@@ -80,7 +80,7 @@ def test_failed_verification_triggers_rollback():
     }
 
     remediation = create_remediation_from_finding(finding)
-
+    remediation.is_admin = lambda: True
     remediation.action = lambda: execution.append("executed") or True
     remediation.verify_action = lambda: False
     remediation.rollback_action = lambda: rollback.append("rolled_back") or True
@@ -106,7 +106,7 @@ def test_remediation_workflow_creates_audit_logs():
     }
 
     remediation = create_remediation_from_finding(finding)
-
+    remediation.is_admin = lambda: True
     remediation.action = lambda: True
     remediation.verify_action = lambda: True
 
@@ -130,7 +130,7 @@ def test_failed_execution_is_recorded_and_stops_workflow():
     }
 
     remediation = create_remediation_from_finding(finding)
-
+    remediation.is_admin = lambda: True
     remediation.action = lambda: False
     remediation.verify_action = lambda: True
 
@@ -147,4 +147,3 @@ def test_failed_execution_is_recorded_and_stops_workflow():
 
     assert "approved" in statuses
     assert "failure" in statuses
-    
