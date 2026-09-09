@@ -230,4 +230,129 @@ def test_engine_moves_to_rollback_failed_state():
 
     assert result.success is False
     assert engine.state == "ROLLBACK_FAILED"
-    
+
+
+def test_firewall_factory_remediation_rolls_back_after_failed_verification(
+    monkeypatch,
+):
+    from src.remediation_factory import create_remediation_from_finding
+    from src.remediation_engine import RemediationEngine
+    import src.firewall_remediation as firewall_remediation
+
+    finding = {
+        "risk": "high",
+        "category": "firewall",
+        "message": "Windows Firewall is disabled.",
+    }
+
+    remediation = create_remediation_from_finding(finding)
+
+    # Simule les privilèges administrateur.
+    monkeypatch.setattr(
+        remediation,
+        "is_admin",
+        lambda: True,
+    )
+
+    # État initial du firewall.
+    initial_state = {
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    }
+
+    # Suivi des opérations.
+    calls = []
+
+    def fake_capture_state():
+        calls.append("capture")
+        return initial_state
+
+    def fake_enable_firewall():
+        calls.append("enable")
+        return True
+
+    def fake_verify_firewall():
+        calls.append("verify")
+        return False
+
+    def fake_restore_state(state):
+        calls.append(("restore", state))
+        return True
+
+    monkeypatch.setattr(
+        firewall_remediation,
+        "get_windows_firewall_state",
+        fake_capture_state,
+    )
+    monkeypatch.setattr(
+        firewall_remediation,
+        "enable_windows_firewall",
+        fake_enable_firewall,
+    )
+    monkeypatch.setattr(
+        firewall_remediation,
+        "verify_windows_firewall",
+        fake_verify_firewall,
+    )
+    monkeypatch.setattr(
+        firewall_remediation,
+        "restore_windows_firewall_state",
+        fake_restore_state,
+    )
+
+    # Important :
+    # les fonctions ont déjà été importées dans remediation_factory.py,
+    # donc on doit également les remplacer dans ce module.
+    import src.remediation_factory as remediation_factory
+
+    monkeypatch.setattr(
+        remediation_factory,
+        "get_windows_firewall_state",
+        fake_capture_state,
+    )
+    monkeypatch.setattr(
+        remediation_factory,
+        "enable_windows_firewall",
+        fake_enable_firewall,
+    )
+    monkeypatch.setattr(
+        remediation_factory,
+        "verify_windows_firewall",
+        fake_verify_firewall,
+    )
+    monkeypatch.setattr(
+        remediation_factory,
+        "restore_windows_firewall_state",
+        fake_restore_state,
+    )
+
+    # Recrée la remediation après le monkeypatch.
+    remediation = create_remediation_from_finding(finding)
+
+    monkeypatch.setattr(
+        remediation,
+        "is_admin",
+        lambda: True,
+    )
+
+    remediation.approve()
+
+    engine = RemediationEngine(remediation)
+
+    result = engine.run()
+
+    # La vérification échoue...
+    assert result.success is False
+
+    # ...mais le rollback restaure l'état initial.
+    assert engine.state == RemediationEngine.ROLLED_BACK
+
+    assert remediation.previous_state == initial_state
+
+    assert calls == [
+        "capture",
+        "enable",
+        "verify",
+        ("restore", initial_state),
+    ]

@@ -84,7 +84,8 @@ def test_failed_verification_triggers_rollback():
     remediation.action = lambda: execution.append("executed") or True
     remediation.verify_action = lambda: False
     remediation.rollback_action = lambda: rollback.append("rolled_back") or True
-
+    remediation.capture_state_action = None
+    remediation.restore_state_action = None
     remediation.approve()
 
     engine = RemediationEngine(remediation)
