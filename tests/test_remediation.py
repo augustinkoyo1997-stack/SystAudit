@@ -559,4 +559,99 @@ def test_verify_returns_failure_result():
     assert isinstance(result, RemediationResult)
     assert result.remediation_id == "TEST-032"
     assert result.success is False
+
+def test_remediation_captures_previous_state_before_execution():
+    captured = {"value": False}
+
+    def capture_state():
+        return {"firewall": "original"}
+
+    def action():
+        captured["value"] = True
+        return True
+
+    remediation = Remediation(
+        id="REM-SNAPSHOT",
+        title="Snapshot test",
+        description="Test snapshot capture.",
+        severity="high",
+        category="firewall",
+        action=action,
+        capture_state_action=capture_state,
+    )
+
+    remediation.approve()
+
+    result = remediation.execute()
+
+    assert result.success is True
+    assert captured["value"] is True
+    assert remediation.previous_state == {
+        "firewall": "original"
+    }
+
+
+def test_remediation_fails_when_snapshot_cannot_be_captured():
+    remediation = Remediation(
+        id="REM-SNAPSHOT",
+        title="Snapshot test",
+        description="Test snapshot failure.",
+        severity="high",
+        category="firewall",
+        action=lambda: True,
+        capture_state_action=lambda: None,
+    )
+
+    remediation.approve()
+
+    result = remediation.execute()
+
+    assert result.success is False
+    assert remediation.previous_state is None
+
+
+def test_remediation_restores_previous_state_on_rollback():
+    restored = {}
+
+    def capture_state():
+        return {
+            "Domain": True,
+            "Public": False,
+            "Private": True,
+        }
+
+    def action():
+        return True
+
+    def restore_state(state):
+        restored.update(state)
+        return True
+
+    remediation = Remediation(
+        id="REM-SNAPSHOT",
+        title="Snapshot test",
+        description="Test snapshot restoration.",
+        severity="high",
+        category="firewall",
+        action=action,
+        rollback_action=lambda: False,
+        capture_state_action=capture_state,
+        restore_state_action=restore_state,
+        requires_admin=False,
+        reversible=True,
+    )
+
+    remediation.approve()
+
+    execution = remediation.execute()
+    rollback = remediation.rollback()
+
+    assert execution.success is True
+    assert rollback.success is True
+
+    assert restored == {
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    }
     

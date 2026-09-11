@@ -7,7 +7,7 @@ Actual system-changing actions will be added later.
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 
 @dataclass
@@ -105,10 +105,15 @@ class Remediation:
     action: Optional[Callable[[], bool]] = None
     rollback_action: Optional[Callable[[], bool]] = None
     verify_action: Optional[Callable[[], bool]] = None
+
+    # Snapshot / restoration support
+    capture_state_action: Optional[Callable[[], Any]] = None
+    restore_state_action: Optional[Callable[[Any], bool]] = None
+    previous_state: Any = field(default=None, init=False)
+
     requires_admin: bool = False
     reversible: bool = False
     approved: bool = False
-    logs: list[RemediationLog] = field(default_factory=list)
     logs: list[RemediationLog] = field(default_factory=list)
 
     def approve(self) -> None:
@@ -149,6 +154,28 @@ class Remediation:
         except (AttributeError, OSError):
             return False
 
+    def capture_state(self) -> bool:
+        """
+        Capture the current system state before remediation execution.
+
+        Returns:
+            True if the state was captured successfully, otherwise False.
+        """
+        if self.capture_state_action is None:
+            return True
+
+        try:
+            state = self.capture_state_action()
+
+            if state is None:
+                return False
+
+            self.previous_state = state
+            return True
+
+        except Exception:
+            return False
+
     def execute(self) -> RemediationResult:
         """
         Execute the remediation action only if it was approved
@@ -171,15 +198,28 @@ class Remediation:
                 f"Administrator privileges are required for remediation "
                 f"'{self.id}'."
             )
-
         if not self.check_preconditions():
             raise RuntimeError(
                 f"Preconditions not satisfied for remediation '{self.id}'."
             )
 
+        if not self.capture_state():
+            message = "Unable to capture the previous system state."
+
+            self.logs.append(
+                RemediationLog.failure(
+                    self.id,
+                    message,
+                )
+            )
+
+            return RemediationResult.failure_result(
+                self.id,
+                message,
+            )
+
         try:
             success = bool(self.action())
-
             if success:
                 message = "Remediation executed successfully."
 
@@ -209,10 +249,6 @@ class Remediation:
                 message,
             )
 
-            return RemediationResult.failure_result(
-                self.id,
-                "Remediation action failed.",
-            )
 
         except Exception as exc:
             message = f"Remediation execution failed: {exc}"
@@ -257,7 +293,17 @@ class Remediation:
             )
 
         try:
-            success = bool(self.rollback_action())
+            if self.restore_state_action is not None:
+                if self.previous_state is None:
+                    raise RuntimeError(
+                        "No previous state is available for restoration."
+                    )
+
+                success = bool(
+                    self.restore_state_action(self.previous_state)
+                )
+            else:
+                success = bool(self.rollback_action())
 
             if success:
                 result = RemediationResult.success_result(

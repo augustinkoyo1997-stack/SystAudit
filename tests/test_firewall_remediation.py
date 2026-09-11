@@ -3,6 +3,8 @@ from src.firewall_remediation import (
     enable_windows_firewall,
     verify_windows_firewall,
     disable_windows_firewall,
+    get_windows_firewall_state,
+    restore_windows_firewall_state,
 )
 def test_firewall_remediation_is_defined_correctly():
     remediation = Remediation(
@@ -173,4 +175,89 @@ def test_firewall_remediation_rolls_back_when_verification_fails():
         "failure",
         "success",
     ]
-    
+
+
+def test_get_windows_firewall_state_returns_all_profiles():
+    with patch("src.firewall_remediation.subprocess.run") as mock_run:
+        mock_run.return_value = type(
+            "Result",
+            (),
+            {
+                "returncode": 0,
+                "stdout": '[{"Name":"Domain","Enabled":true},{"Name":"Public","Enabled":false},{"Name":"Private","Enabled":true}]',
+                "stderr": "",
+            },
+        )()
+
+        result = get_windows_firewall_state()
+
+    assert result == {
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    }
+
+
+def test_get_windows_firewall_state_returns_none_on_command_failure():
+    with patch("src.firewall_remediation.subprocess.run") as mock_run:
+        mock_run.return_value = type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "Access denied",
+            },
+        )()
+
+        result = get_windows_firewall_state()
+
+    assert result is None
+
+def test_restore_windows_firewall_state_restores_each_profile():
+
+    state = {
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    }
+
+    with patch("src.firewall_remediation.subprocess.run") as mock_run:
+        mock_run.return_value = type(
+            "Result",
+            (),
+            {
+                "returncode": 0,
+                "stdout": "",
+                "stderr": "",
+            },
+        )()
+
+        result = restore_windows_firewall_state(state)
+
+    assert result is True
+    mock_run.assert_called_once()
+
+
+def test_restore_windows_firewall_state_returns_false_on_failure():
+
+    state = {
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    }
+
+    with patch("src.firewall_remediation.subprocess.run") as mock_run:
+        mock_run.return_value = type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "Access denied",
+            },
+        )()
+
+        result = restore_windows_firewall_state(state)
+
+    assert result is False

@@ -7,6 +7,8 @@ from src.firewall_remediation import (
     enable_windows_firewall,
     verify_windows_firewall,
     disable_windows_firewall,
+    get_windows_firewall_state,
+    restore_windows_firewall_state,
 )
 import pytest
 
@@ -164,4 +166,19 @@ def test_firewall_factory_creates_executable_remediation():
 
     assert remediation.action is enable_windows_firewall
     assert remediation.verify_action is verify_windows_firewall
+    assert remediation.rollback_action is disable_windows_firewall
+
+def test_firewall_factory_configures_snapshot_and_restore():
+    finding = {
+        "risk": "high",
+        "category": "firewall",
+        "message": "Windows Firewall is disabled.",
+    }
+
+    remediation = create_remediation_from_finding(finding)
+
+    assert remediation.capture_state_action is get_windows_firewall_state
+    assert remediation.restore_state_action is restore_windows_firewall_state
+
+    # Compatibility with the previous rollback mechanism.
     assert remediation.rollback_action is disable_windows_firewall

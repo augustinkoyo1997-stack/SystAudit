@@ -1,8 +1,11 @@
 from src.remediation import Remediation
+
 from src.firewall_remediation import (
     enable_windows_firewall,
     verify_windows_firewall,
     disable_windows_firewall,
+    get_windows_firewall_state,
+    restore_windows_firewall_state,
 )
 
 
@@ -44,12 +47,16 @@ def create_remediation_from_finding(finding):
     action = None
     verify_action = None
     rollback_action = None
+    capture_state_action = None
+    restore_state_action = None
 
     if category == "firewall":
         action = enable_windows_firewall
         verify_action = verify_windows_firewall
         rollback_action = disable_windows_firewall
 
+        capture_state_action = get_windows_firewall_state
+        restore_state_action = restore_windows_firewall_state
     remediation_id = f"REM-{category.upper()}"
 
     return Remediation(
@@ -61,6 +68,8 @@ def create_remediation_from_finding(finding):
         action=action,
         rollback_action=rollback_action,
         verify_action=verify_action,
+        capture_state_action=capture_state_action,
+        restore_state_action=restore_state_action,
         requires_admin=requires_admin,
         reversible=reversible,
     )

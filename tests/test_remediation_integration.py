@@ -52,7 +52,13 @@ def test_approved_remediation_executes_and_is_verified():
     }
 
     remediation = create_remediation_from_finding(finding)
+
     remediation.is_admin = lambda: True
+    remediation.capture_state_action = lambda: {
+        "Domain": True,
+        "Public": True,
+        "Private": True,
+    }
     remediation.action = lambda: execution.append("executed") or True
     remediation.verify_action = lambda: verification.append("verified") or True
 
@@ -84,7 +90,8 @@ def test_failed_verification_triggers_rollback():
     remediation.action = lambda: execution.append("executed") or True
     remediation.verify_action = lambda: False
     remediation.rollback_action = lambda: rollback.append("rolled_back") or True
-
+    remediation.capture_state_action = None
+    remediation.restore_state_action = None
     remediation.approve()
 
     engine = RemediationEngine(remediation)
@@ -106,7 +113,13 @@ def test_remediation_workflow_creates_audit_logs():
     }
 
     remediation = create_remediation_from_finding(finding)
+
     remediation.is_admin = lambda: True
+    remediation.capture_state_action = lambda: {
+        "Domain": True,
+        "Public": True,
+        "Private": True,
+    }
     remediation.action = lambda: True
     remediation.verify_action = lambda: True
 
