@@ -434,16 +434,66 @@
             font-size: 12px;
         }
 
+        .remediation-button {
+    border: none;
+    padding: 10px 15px;
+    border-radius: 9px;
+    background: linear-gradient(
+        135deg,
+        var(--warning),
+        #d97706
+    );
+    color: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    transition: 0.2s;
+    }
+
+    .remediation-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(245, 165, 36, 0.25);
+    }
+
+    .remediation-button:active {
+        transform: translateY(0);
+    }
+        .remediation-button {
+            border: none;
+            padding: 10px 15px;
+            border-radius: 9px;
+            background: linear-gradient(
+                135deg,
+                var(--warning),
+                #d97706
+            );
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: 0.2s;
+        }
+
+        .remediation-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(245, 165, 36, 0.25);
+        }
+
+        .remediation-button:active {
+            transform: translateY(0);
+        }        
+
+
         /* =========================
-           FOOTER
+                FOOTER
         ========================= */
 
-        .footer {
-            text-align: center;
-            color: #5d7185;
-            margin-top: 30px;
-            font-size: 12px;
-        }
+                .footer {
+                    text-align: center;
+                    color: #5d7185;
+                    margin-top: 30px;
+                    font-size: 12px;
+                }
 
         /* =========================
            RESPONSIVE
@@ -796,7 +846,6 @@
         {% endif %}
 
     </section>
-
 <!-- =========================
      LAST AUDIT
 ========================== -->
@@ -837,82 +886,60 @@
 
             </div>
 
-
             <!-- APPAREIL -->
             <div class="info">
-
                 <span>🖥️ Appareil</span>
-
                 <strong>
                     {{ latest_audit.device.device_id }}
                 </strong>
-
             </div>
-
 
             <!-- CONTRÔLES -->
             <div class="info">
-
                 <span>📋 Contrôles</span>
-
                 <strong>
                     {{ latest_audit.summary.total_checks|default:"0" }}
                 </strong>
-
             </div>
-
 
             <!-- RÉUSSIS -->
             <div class="info">
-
                 <span>✅ Contrôles réussis</span>
-
                 <strong class="severity-low">
                     {{ latest_audit.summary.passed|default:"0" }}
                 </strong>
-
             </div>
-
 
             <!-- AVERTISSEMENTS -->
             <div class="info">
-
                 <span>⚠️ Avertissements</span>
-
                 <strong class="severity-medium">
                     {{ latest_audit.summary.warnings|default:"0" }}
                 </strong>
-
             </div>
-
 
             <!-- CRITIQUES -->
             <div class="info">
-
                 <span>🔴 Critiques</span>
-
                 <strong class="severity-high">
                     {{ latest_audit.summary.critical|default:"0" }}
                 </strong>
-
             </div>
-
 
             <!-- DATE -->
             <div class="info">
-
                 <span>📅 Date du dernier audit</span>
-
                 <strong>
                     {{ latest_audit.created_at }}
                 </strong>
-
             </div>
 
         </div>
 
 
-        <!-- FINDINGS -->
+        <!-- =========================
+             FINDINGS
+        ========================== -->
 
         {% if latest_audit.findings %}
 
@@ -931,27 +958,51 @@
                             <div class="device-header">
 
                                 <div class="device-name">
-                                    {{ finding.title }}
+                                    {{ finding.category|title }}
                                 </div>
 
                                 <div class="
                                     device-status
-                                    {% if finding.severity == 'HIGH' %}
+                                    {% if finding.risk|upper == 'HIGH' %}
                                         severity-high
-                                    {% elif finding.severity == 'MEDIUM' %}
+                                    {% elif finding.risk|upper == 'MEDIUM' %}
                                         severity-medium
                                     {% else %}
                                         severity-low
                                     {% endif %}
                                 ">
-                                    {{ finding.severity }}
+                                    {{ finding.risk|upper }}
                                 </div>
 
                             </div>
 
                             <div class="device-info">
-                                {{ finding.description }}
+                                {{ finding.message }}
                             </div>
+
+
+                            <!-- REMEDIATION -->
+
+                            {% if finding.category == "bitlocker" or finding.category == "firewall" %}
+
+                                <form
+                                    method="post"
+                                    action="{% url 'create_remediation_request' latest_audit.id finding.category %}"
+                                    style="margin-top: 15px;"
+                                >
+
+                                    {% csrf_token %}
+
+                                    <button
+                                        type="submit"
+                                        class="remediation-button"
+                                    >
+                                        🛠️ Remédier
+                                    </button>
+
+                                </form>
+
+                            {% endif %}
 
                         </div>
 
@@ -964,7 +1015,175 @@
         {% endif %}
 
 
-        <!-- RECOMMANDATIONS -->
+
+<!-- =========================
+     REMEDIATION REQUESTS
+========================== -->
+
+{% if remediation_requests %}
+
+    <div style="margin-top: 20px;">
+
+        <h3 style="font-size: 16px; margin-bottom: 12px;">
+            🛠️ Demandes de remédiation
+        </h3>
+
+        <div class="device-list">
+
+            {% for remediation in remediation_requests %}
+
+                <div class="device">
+
+                    <div>
+
+                        <strong>
+                            {{ remediation.title }}
+                        </strong>
+
+                        <div style="margin-top: 5px;">
+                            {{ remediation.description }}
+                        </div>
+
+                        <div style="margin-top: 8px;">
+
+                            <strong>Gravité :</strong>
+                            {{ remediation.severity }}
+
+                            <br>
+
+                            <strong>Statut :</strong>
+                            {{ remediation.status }}
+
+                        </div>
+
+
+                        <!-- RESULT -->
+
+                        {% if remediation.result_message %}
+
+                            <div
+                                style="
+                                    margin-top: 12px;
+                                    padding: 10px;
+                                    border-radius: 6px;
+                                    background: #f5f5f5;
+                                "
+                            >
+
+                                <strong>Résultat :</strong>
+
+                                <div style="margin-top: 5px;">
+                                    {{ remediation.result_message }}
+                                </div>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <!-- PROPOSED -->
+
+                    {% if remediation.status == "PROPOSED" %}
+
+                        <form
+                            method="post"
+                            action="{% url 'approve_remediation_request' remediation.id %}"
+                            style="margin-top: 12px;"
+                        >
+
+                            {% csrf_token %}
+
+                            <button
+                                type="submit"
+                                class="remediation-button"
+                            >
+                                ✅ Approuver
+                            </button>
+
+                        </form>
+
+
+                    <!-- APPROVED -->
+
+                    {% elif remediation.status == "APPROVED" %}
+
+                        <div style="margin-top: 12px;">
+
+                            <div style="margin-bottom: 10px;">
+                                ✅ Remédiation approuvée
+                            </div>
+
+                            <form
+                                method="post"
+                                action="{% url 'execute_remediation_request' remediation.id %}"
+                            >
+
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="remediation-button"
+                                >
+                                    ▶️ Exécuter la remédiation
+                                </button>
+
+                            </form>
+
+                        </div>
+
+
+                    <!-- EXECUTING -->
+
+                    {% elif remediation.status == "EXECUTING" %}
+
+                        <div style="margin-top: 12px;">
+                            ⏳ Remédiation en cours d'exécution...
+                        </div>
+
+
+                    <!-- SUCCESS -->
+
+                    {% elif remediation.status == "SUCCESS" %}
+
+                        <div style="margin-top: 12px;">
+                            ✅ Remédiation exécutée avec succès.
+                        </div>
+
+
+                    <!-- FAILED -->
+
+                    {% elif remediation.status == "FAILED" %}
+
+                        <div style="margin-top: 12px;">
+                            ❌ Échec de la remédiation.
+                        </div>
+
+
+                    <!-- ROLLED BACK -->
+
+                    {% elif remediation.status == "ROLLED_BACK" %}
+
+                        <div style="margin-top: 12px;">
+                            🔄 Remédiation annulée et restaurée.
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+{% endif %}
+
+        <!-- =========================
+             RECOMMANDATIONS
+        ========================== -->
 
         {% if latest_audit.recommendations %}
 
@@ -979,9 +1198,11 @@
                     {% for recommendation in latest_audit.recommendations %}
 
                         <div class="device">
+
                             <div class="device-info">
                                 {{ recommendation }}
                             </div>
+
                         </div>
 
                     {% endfor %}
@@ -992,6 +1213,7 @@
 
         {% endif %}
 
+
     {% else %}
 
         <div class="empty-state">
@@ -1001,8 +1223,6 @@
     {% endif %}
 
 </section>
-
-
 
     <!-- =========================
          AUDIT HISTORY

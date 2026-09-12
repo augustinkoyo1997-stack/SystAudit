@@ -7,6 +7,7 @@ from src.firewall_remediation import (
     get_windows_firewall_state,
     restore_windows_firewall_state,
 )
+from src.bitlocker_remediation import analyze_bitlocker_state
 
 
 def create_remediation_from_finding(finding):
@@ -57,6 +58,16 @@ def create_remediation_from_finding(finding):
 
         capture_state_action = get_windows_firewall_state
         restore_state_action = restore_windows_firewall_state
+
+    elif category == "bitlocker":
+        diagnostic = analyze_bitlocker_state()
+
+        if diagnostic["needs_remediation"]:
+            message = (
+                f"{message} "
+                "Automatic BitLocker remediation is blocked because "
+                "the required key-protector workflow is not yet available."
+            )
     remediation_id = f"REM-{category.upper()}"
 
     return Remediation(

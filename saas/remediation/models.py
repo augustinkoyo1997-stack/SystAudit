@@ -49,6 +49,11 @@ class RemediationRequest(models.Model):
         blank=True,
     )
 
+    result_message = models.TextField(
+        blank=True,
+        default="",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -135,24 +140,26 @@ class RemediationRequest(models.Model):
             ]
         )
 
-    def mark_success(self):
-        if self.status != self.EXECUTING:
-            raise ValueError(
-                "Only executing remediations can succeed."
+        def mark_success(self, message="Remediation executed successfully."):
+            if self.status != self.EXECUTING:
+                raise ValueError(
+                    "Only executing remediations can succeed."
+                )
+
+            self.status = self.SUCCESS
+            self.executed_at = timezone.now()
+            self.result_message = message
+
+            self.save(
+                update_fields=[
+                    "status",
+                    "executed_at",
+                    "result_message",
+                    "updated_at",
+                ]
             )
 
-        self.status = self.SUCCESS
-        self.executed_at = timezone.now()
-
-        self.save(
-            update_fields=[
-                "status",
-                "executed_at",
-                "updated_at",
-            ]
-        )
-
-    def mark_failed(self):
+    def mark_failed(self, message="Remediation execution failed."):
         if self.status != self.EXECUTING:
             raise ValueError(
                 "Only executing remediations can fail."
@@ -160,11 +167,13 @@ class RemediationRequest(models.Model):
 
         self.status = self.FAILED
         self.executed_at = timezone.now()
+        self.result_message = message
 
         self.save(
             update_fields=[
                 "status",
                 "executed_at",
+                "result_message",
                 "updated_at",
             ]
         )
