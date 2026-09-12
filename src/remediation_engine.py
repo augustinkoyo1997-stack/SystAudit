@@ -1,3 +1,5 @@
+from typing import Callable, Optional
+
 from src.remediation import Remediation, RemediationResult
 
 
@@ -16,8 +18,13 @@ class RemediationEngine:
     ROLLED_BACK = "ROLLED_BACK"
     ROLLBACK_FAILED = "ROLLBACK_FAILED"
 
-    def __init__(self, remediation: Remediation):
+    def __init__(
+        self,
+        remediation: Remediation,
+        execution_handler: Optional[Callable] = None,
+    ):
         self.remediation = remediation
+        self.execution_handler = execution_handler
         self.state = self.PROPOSED
 
     def sync_state(self) -> str:
@@ -28,6 +35,30 @@ class RemediationEngine:
             self.state = self.PROPOSED
 
         return self.state
+
+    def _execute(self) -> RemediationResult:
+        """
+        Execute the remediation.
+
+        A custom execution handler can be supplied for remediation types
+        that require a specialized workflow. Otherwise, the standard
+        Remediation.execute() method is used.
+        """
+        if self.execution_handler is not None:
+            result = self.execution_handler(self.remediation)
+
+            if isinstance(result, RemediationResult):
+                return result
+
+            return RemediationResult(
+                success=False,
+                remediation_id=self.remediation.id,
+                message=(
+                    "Custom execution handler returned an invalid result."
+                ),
+            )
+
+        return self.remediation.execute()
 
     def run(self) -> RemediationResult:
         """
@@ -47,7 +78,7 @@ class RemediationEngine:
         self.state = self.APPROVED
 
         self.state = self.EXECUTING
-        execution_result = self.remediation.execute()
+        execution_result = self._execute()
 
         if not execution_result.success:
             self.state = self.EXECUTION_FAILED
@@ -75,4 +106,3 @@ class RemediationEngine:
                 self.state = self.ROLLBACK_FAILED
 
         return verification_result
-    
