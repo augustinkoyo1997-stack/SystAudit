@@ -1143,13 +1143,39 @@
                         </div>
 
 
-                    <!-- SUCCESS -->
+                <!-- SUCCESS -->
 
-                    {% elif remediation.status == "SUCCESS" %}
+                {% elif remediation.status == "SUCCESS" %}
+
+                    {% if "BITLOCKER" in remediation.remediation_id %}
+
+                        <div
+                            style="
+                                margin-top: 12px;
+                                padding: 12px;
+                                border-radius: 8px;
+                                background: rgba(245, 165, 36, 0.10);
+                                border: 1px solid rgba(245, 165, 36, 0.25);
+                            "
+                        >
+                            <strong>🧪 Simulation réussie</strong>
+
+                            <div style="margin-top: 6px;">
+                                Aucune modification BitLocker n'a été effectuée.
+                            </div>
+
+                            <div style="margin-top: 6px; color: var(--muted);">
+                                Cette remédiation a été exécutée en mode DRY-RUN.
+                            </div>
+                        </div>
+
+                    {% else %}
 
                         <div style="margin-top: 12px;">
                             ✅ Remédiation exécutée avec succès.
                         </div>
+
+                    {% endif %}
 
 
                     <!-- FAILED -->

@@ -1,10 +1,11 @@
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect, render
-from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
+
 from remediation.models import RemediationRequest
 from licensing.models import AuditReport
+
 from .forms import RegisterForm
 
 
@@ -101,6 +102,7 @@ def dashboard_view(request):
         },
     )
 
+
 @login_required
 def create_remediation_request(request, audit_id, category):
     if request.method != "POST":
@@ -126,24 +128,47 @@ def create_remediation_request(request, audit_id, category):
     if not finding:
         return redirect("dashboard")
 
-    remediation_map = {
-        "bitlocker": "REM-BITLOCKER",
-        "firewall": "REM-FIREWALL",
-    }
+    if category == "bitlocker":
+        volumes = ["C:", "D:", "E:"]
 
-    remediation_id = remediation_map.get(category)
+        for volume in volumes:
+            RemediationRequest.objects.get_or_create(
+                audit_report=audit_report,
+                remediation_id=f"REM-BITLOCKER-{volume[0]}",
+                defaults={
+                    "title": f"Remediate bitlocker {volume}",
+                    "description": (
+                        f"BitLocker protection is disabled on volume {volume}."
+                    ),
+                    "severity": finding.get(
+                        "risk",
+                        "medium",
+                    ).upper(),
+                    "target_volume": volume,
+                },
+            )
 
-    if not remediation_id:
-        return redirect("dashboard")
+    else:
+        remediation_map = {
+            "firewall": "REM-FIREWALL",
+        }
 
-    RemediationRequest.objects.get_or_create(
-        audit_report=audit_report,
-        remediation_id=remediation_id,
-        defaults={
-            "title": f"Remediate {category}",
-            "description": finding.get("message", ""),
-            "severity": finding.get("risk", "medium").upper(),
-        },
-    )
+        remediation_id = remediation_map.get(category)
+
+        if not remediation_id:
+            return redirect("dashboard")
+
+        RemediationRequest.objects.get_or_create(
+            audit_report=audit_report,
+            remediation_id=remediation_id,
+            defaults={
+                "title": f"Remediate {category}",
+                "description": finding.get("message", ""),
+                "severity": finding.get(
+                    "risk",
+                    "medium",
+                ).upper(),
+            },
+        )
 
     return redirect("dashboard")

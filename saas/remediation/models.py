@@ -12,6 +12,14 @@ class RemediationRequest(models.Model):
     FAILED = "FAILED"
     ROLLED_BACK = "ROLLED_BACK"
 
+    DRY_RUN = "DRY_RUN"
+    REAL = "REAL"
+
+    EXECUTION_MODE_CHOICES = [
+        (DRY_RUN, "Dry-run"),
+        (REAL, "Real"),
+    ]
+
     STATUS_CHOICES = [
         (PROPOSED, "Proposed"),
         (APPROVED, "Approved"),
@@ -32,6 +40,18 @@ class RemediationRequest(models.Model):
     description = models.TextField(blank=True)
 
     severity = models.CharField(max_length=20)
+
+    target_volume = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+    )
+
+    execution_mode = models.CharField(
+        max_length=20,
+        choices=EXECUTION_MODE_CHOICES,
+        default=DRY_RUN,
+    )
 
     status = models.CharField(
         max_length=20,
@@ -140,24 +160,27 @@ class RemediationRequest(models.Model):
             ]
         )
 
-        def mark_success(self, message="Remediation executed successfully."):
-            if self.status != self.EXECUTING:
-                raise ValueError(
-                    "Only executing remediations can succeed."
-                )
-
-            self.status = self.SUCCESS
-            self.executed_at = timezone.now()
-            self.result_message = message
-
-            self.save(
-                update_fields=[
-                    "status",
-                    "executed_at",
-                    "result_message",
-                    "updated_at",
-                ]
+    def mark_success(
+        self,
+        message="Remediation executed successfully.",
+    ):
+        if self.status != self.EXECUTING:
+            raise ValueError(
+                "Only executing remediations can succeed."
             )
+
+        self.status = self.SUCCESS
+        self.executed_at = timezone.now()
+        self.result_message = message
+
+        self.save(
+            update_fields=[
+                "status",
+                "executed_at",
+                "result_message",
+                "updated_at",
+            ]
+        )
 
     def mark_failed(self, message="Remediation execution failed."):
         if self.status != self.EXECUTING:
@@ -192,4 +215,3 @@ class RemediationRequest(models.Model):
                 "updated_at",
             ]
         )
-        

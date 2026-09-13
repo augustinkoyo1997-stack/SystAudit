@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.urls import reverse
+from unittest.mock import patch
 
 from licensing.models import AuditReport, LicensedDevice
 from .models import RemediationRequest
@@ -456,3 +458,275 @@ class RemediationRequestModelTests(TestCase):
 
         with self.assertRaises(ValueError):
             remediation.save()
+
+    def test_target_volume_can_be_set(self):
+        remediation = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-BITLOCKER-C",
+            title="Remediate bitlocker C:",
+            severity="MEDIUM",
+            target_volume="C:",
+        )
+
+        self.assertEqual(
+            remediation.target_volume,
+            "C:",
+        )
+
+    def test_target_volume_is_optional(self):
+        remediation = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-FIREWALL",
+            title="Remediate firewall",
+            severity="HIGH",
+        )
+
+        self.assertEqual(
+            remediation.target_volume,
+            "",
+        )
+
+    def test_bitlocker_requests_can_have_distinct_volumes(self):
+        remediation_c = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-BITLOCKER-C",
+            title="Remediate bitlocker C:",
+            severity="MEDIUM",
+            target_volume="C:",
+        )
+
+        remediation_d = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-BITLOCKER-D",
+            title="Remediate bitlocker D:",
+            severity="MEDIUM",
+            target_volume="D:",
+        )
+
+        remediation_e = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-BITLOCKER-E",
+            title="Remediate bitlocker E:",
+            severity="MEDIUM",
+            target_volume="E:",
+        )
+
+        self.assertEqual(remediation_c.target_volume, "C:")
+        self.assertEqual(remediation_d.target_volume, "D:")
+        self.assertEqual(remediation_e.target_volume, "E:")
+
+class RemediationRequestViewTests(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="view_test_user",
+            password="test-password-123",
+        )
+
+        self.license = self.user.license
+
+        self.device = LicensedDevice.objects.create(
+            license=self.license,
+            device_id="VIEW-TEST-DEVICE-001",
+        )
+
+        self.audit_report = AuditReport.objects.create(
+            device=self.device,
+            score=90,
+            summary={
+                "total_checks": 10,
+                "passed": 9,
+                "warnings": 1,
+                "critical": 0,
+            },
+            findings=[],
+            recommendations=[],
+        )
+
+        self.client.login(
+            username="view_test_user",
+            password="test-password-123",
+        )
+
+    def _create_bitlocker_request(self, volume):
+        return RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id=f"REM-BITLOCKER-{volume[0]}",
+            title=f"Remediate bitlocker {volume}",
+            description=(
+                f"BitLocker protection is disabled on volume {volume}."
+            ),
+            severity="MEDIUM",
+            target_volume=volume,
+        )
+
+    @patch(
+        "remediation.views.analyze_bitlocker_state"
+    )
+    def test_execute_bitlocker_request_selects_c_volume(
+        self,
+        mock_analyze,
+    ):
+        request = self._create_bitlocker_request("C:")
+        request.approve()
+
+        mock_analyze.return_value = {
+            "ready": False,
+            "needs_remediation": True,
+            "volumes": [
+                {
+                    "mount_point": "C:",
+                    "encrypted": True,
+                    "encryption_percentage": 100,
+                    "protection_enabled": False,
+                    "key_protectors": 0,
+                    "reason": "No BitLocker key protector found.",
+                },
+                {
+                    "mount_point": "D:",
+                    "encrypted": True,
+                    "encryption_percentage": 100,
+                    "protection_enabled": False,
+                    "key_protectors": 0,
+                    "reason": "No BitLocker key protector found.",
+                },
+                {
+                    "mount_point": "E:",
+                    "encrypted": True,
+                    "encryption_percentage": 100,
+                    "protection_enabled": False,
+                    "key_protectors": 0,
+                    "reason": "No BitLocker key protector found.",
+                },
+            ],
+        }
+
+        response = self.client.post(
+            reverse(
+                "execute_remediation_request",
+                args=[request.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        request.refresh_from_db()
+
+        self.assertEqual(
+            request.status,
+            RemediationRequest.SUCCESS,
+        )
+
+        self.assertIn(
+            "Remediation verification completed successfully.",
+            request.result_message,
+        )
+
+
+    @patch(
+        "remediation.views.analyze_bitlocker_state"
+    )
+    def test_dry_run_bitlocker_execution_is_allowed(
+        self,
+        mock_analyze,
+    ):
+        request = self._create_bitlocker_request("D:")
+
+        request.execution_mode = RemediationRequest.DRY_RUN
+        request.save(
+            update_fields=[
+                "execution_mode",
+                "updated_at",
+            ]
+        )
+
+        request.approve()
+
+        mock_analyze.return_value = {
+            "ready": False,
+            "needs_remediation": True,
+            "volumes": [
+                {
+                    "mount_point": "D:",
+                    "encrypted": True,
+                    "encryption_percentage": 100,
+                    "protection_enabled": False,
+                    "key_protectors": 0,
+                    "reason": "No BitLocker key protector found.",
+                },
+            ],
+        }
+
+        response = self.client.post(
+            reverse(
+                "execute_remediation_request",
+                args=[request.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        request.refresh_from_db()
+
+        self.assertEqual(
+            request.execution_mode,
+            RemediationRequest.DRY_RUN,
+        )
+
+        self.assertEqual(
+            request.status,
+            RemediationRequest.SUCCESS,
+        )
+
+        self.assertIn(
+            "Remediation verification completed successfully.",
+            request.result_message,
+        )
+
+
+    @patch(
+        "remediation.views.analyze_bitlocker_state"
+    )
+    def test_real_remediation_execution_is_blocked(
+        self,
+        mock_analyze,
+    ):
+        request = self._create_bitlocker_request("E:")
+
+        request.execution_mode = RemediationRequest.REAL
+        request.save(
+            update_fields=[
+                "execution_mode",
+                "updated_at",
+            ]
+        )
+
+        request.approve()
+
+        response = self.client.post(
+            reverse(
+                "execute_remediation_request",
+                args=[request.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        request.refresh_from_db()
+
+        self.assertEqual(
+            request.execution_mode,
+            RemediationRequest.REAL,
+        )
+
+        self.assertEqual(
+            request.status,
+            RemediationRequest.FAILED,
+        )
+
+        self.assertIn(
+            "Real remediation execution is currently disabled.",
+            request.result_message,
+        )
+
+        mock_analyze.assert_not_called()
