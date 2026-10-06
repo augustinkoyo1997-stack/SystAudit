@@ -63,11 +63,23 @@ def create_remediation_from_finding(finding):
         diagnostic = analyze_bitlocker_state()
 
         if diagnostic["needs_remediation"]:
-            message = (
-                f"{message} "
-                "Automatic BitLocker remediation is blocked because "
-                "the required key-protector workflow is not yet available."
+            volume = next(
+                (
+                    item["mount_point"]
+                    for item in diagnostic["volumes"]
+                    if not item["protection_enabled"]
+                    and item["key_protectors"] == 0
+                ),
+                None,
             )
+
+            if volume:
+                message = (
+                    f"{message} "
+                    f"Automatic BitLocker remediation is blocked. "
+                    f"Controlled BitLocker recovery workflow prepared "
+                    f"for {volume} in dry-run mode."
+                )
     remediation_id = f"REM-{category.upper()}"
 
     return Remediation(

@@ -13,9 +13,17 @@ from .security import (
 )
 
 
-def _finding(title, severity, description):
-    """Build a standardized audit finding."""
+def _finding(title, severity, description, category):
+    """Build a normalized audit finding."""
+
+    severity = severity.upper()
+
     return {
+        # Nouveau format canonique
+        "risk": severity.lower(),
+        "category": category,
+        "message": description,
+        # Compatibilité temporaire avec l'ancien code
         "title": title,
         "severity": severity,
         "description": description,
@@ -31,20 +39,19 @@ def _evaluate_firewall():
             "Firewall non vérifiable",
             "MEDIUM",
             "Impossible de vérifier l'état du pare-feu Windows.",
+            "firewall",
         )
 
     disabled_profiles = [
-        profile
-        for profile, enabled in firewall.items()
-        if not enabled
+        profile for profile, enabled in firewall.items() if not enabled
     ]
 
     if disabled_profiles:
         return _finding(
             "Pare-feu désactivé",
             "HIGH",
-            f"Le pare-feu est désactivé pour : "
-            f"{', '.join(disabled_profiles)}.",
+            f"Le pare-feu est désactivé pour : " f"{', '.join(disabled_profiles)}.",
+            "firewall",
         )
 
     return None
@@ -59,6 +66,7 @@ def _evaluate_antivirus():
             "Antivirus non détecté",
             "HIGH",
             "Aucun antivirus actif n'a été détecté.",
+            "antivirus",
         )
 
     active_antivirus = []
@@ -73,8 +81,8 @@ def _evaluate_antivirus():
         return _finding(
             "Antivirus inactif",
             "HIGH",
-            "Un antivirus est présent mais aucun état actif "
-            "n'a été détecté.",
+            "Un antivirus est présent mais aucun état actif " "n'a été détecté.",
+            "antivirus",
         )
 
     return None
@@ -89,6 +97,7 @@ def _evaluate_uac():
             "UAC désactivé",
             "HIGH",
             "Le contrôle de compte utilisateur (UAC) est désactivé.",
+            "uac",
         )
 
     return None
@@ -103,14 +112,12 @@ def _evaluate_bitlocker():
             "BitLocker non détecté",
             "MEDIUM",
             "Aucune information BitLocker exploitable n'a été détectée.",
+            "bitlocker",
         )
-
     unprotected = []
 
     for volume in bitlocker:
-        protection = str(
-            volume.get("protection_status", "")
-        ).lower()
+        protection = str(volume.get("protection_status", "")).lower()
 
         if protection not in {"on", "protected", "1"}:
             unprotected.append(volume.get("mount_point", "volume inconnu"))
@@ -121,6 +128,7 @@ def _evaluate_bitlocker():
             "MEDIUM",
             "Certains volumes ne semblent pas bénéficier "
             "d'une protection BitLocker active.",
+            "bitlocker",
         )
 
     return None
@@ -136,6 +144,7 @@ def _evaluate_password_expiration():
             "MEDIUM",
             f"{len(users)} compte(s) local(aux) ont un mot de passe "
             "configuré sans expiration.",
+            "password_policy",
         )
 
     return None
@@ -151,6 +160,7 @@ def _evaluate_suspicious_services():
             "HIGH",
             f"{len(services)} service(s) présentent "
             "des caractéristiques nécessitant une vérification.",
+            "suspicious_services",
         )
 
     return None
@@ -166,6 +176,7 @@ def _evaluate_suspicious_tasks():
             "HIGH",
             f"{len(tasks)} tâche(s) planifiée(s) présentent "
             "des caractéristiques suspectes.",
+            "suspicious_tasks",
         )
 
     return None
@@ -181,6 +192,7 @@ def _evaluate_suspicious_processes():
             "HIGH",
             f"{len(processes)} processus présentent "
             "des caractéristiques nécessitant une vérification.",
+            "suspicious_processes",
         )
 
     return None
@@ -191,16 +203,13 @@ def _evaluate_suspicious_ports():
     ports = get_suspicious_ports()
 
     if ports:
-        port_list = ", ".join(
-            str(item["port"])
-            for item in ports
-        )
+        port_list = ", ".join(str(item["port"]) for item in ports)
 
         return _finding(
             "Ports sensibles exposés",
             "MEDIUM",
-            f"Des ports sensibles sont actuellement en écoute : "
-            f"{port_list}.",
+            f"Des ports sensibles sont actuellement en écoute : " f"{port_list}.",
+            "suspicious_ports",
         )
 
     return None
@@ -214,8 +223,8 @@ def _evaluate_security_events():
         return _finding(
             "Événements de sécurité suspects",
             "MEDIUM",
-            f"{len(events)} événement(s) de sécurité "
-            "nécessitent une analyse.",
+            f"{len(events)} événement(s) de sécurité " "nécessitent une analyse.",
+            "security_events",
         )
 
     return None
@@ -243,14 +252,10 @@ def calculate_score(findings, total_checks):
 
 def build_summary(findings, total_checks):
     """Build the audit summary expected by the SaaS dashboard."""
-    critical = sum(
-        1 for finding in findings
-        if finding.get("severity") == "HIGH"
-    )
+    critical = sum(1 for finding in findings if finding.get("severity") == "HIGH")
 
     warnings = sum(
-        1 for finding in findings
-        if finding.get("severity") in {"MEDIUM", "LOW"}
+        1 for finding in findings if finding.get("severity") in {"MEDIUM", "LOW"}
     )
 
     passed = max(
@@ -271,28 +276,17 @@ def build_recommendations(findings):
     recommendations = []
 
     recommendation_map = {
-        "Pare-feu désactivé":
-            "Activer le pare-feu Windows sur tous les profils réseau.",
-        "Antivirus non détecté":
-            "Installer et maintenir un antivirus reconnu et à jour.",
-        "Antivirus inactif":
-            "Vérifier et réactiver la protection antivirus.",
-        "UAC désactivé":
-            "Réactiver le contrôle de compte utilisateur (UAC).",
-        "Volumes non protégés par BitLocker":
-            "Activer BitLocker sur les volumes contenant des données sensibles.",
-        "Mots de passe sans expiration":
-            "Revoir la politique d'expiration des mots de passe des comptes locaux.",
-        "Services suspects détectés":
-            "Analyser les services suspects et vérifier leurs exécutables.",
-        "Tâches planifiées suspectes":
-            "Analyser les tâches planifiées suspectes et leurs actions.",
-        "Processus suspects détectés":
-            "Analyser les processus suspects et leur origine.",
-        "Ports sensibles exposés":
-            "Fermer ou restreindre les ports sensibles qui ne sont pas nécessaires.",
-        "Événements de sécurité suspects":
-            "Analyser les événements de sécurité détectés dans les journaux Windows.",
+        "Pare-feu désactivé": "Activer le pare-feu Windows sur tous les profils réseau.",
+        "Antivirus non détecté": "Installer et maintenir un antivirus reconnu et à jour.",
+        "Antivirus inactif": "Vérifier et réactiver la protection antivirus.",
+        "UAC désactivé": "Réactiver le contrôle de compte utilisateur (UAC).",
+        "Volumes non protégés par BitLocker": "Activer BitLocker sur les volumes contenant des données sensibles.",
+        "Mots de passe sans expiration": "Revoir la politique d'expiration des mots de passe des comptes locaux.",
+        "Services suspects détectés": "Analyser les services suspects et vérifier leurs exécutables.",
+        "Tâches planifiées suspectes": "Analyser les tâches planifiées suspectes et leurs actions.",
+        "Processus suspects détectés": "Analyser les processus suspects et leur origine.",
+        "Ports sensibles exposés": "Fermer ou restreindre les ports sensibles qui ne sont pas nécessaires.",
+        "Événements de sécurité suspects": "Analyser les événements de sécurité détectés dans les journaux Windows.",
     }
 
     for finding in findings:
