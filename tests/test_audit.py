@@ -30,15 +30,15 @@ def test_run_security_audit_report_structure():
 
     summary = result["summary"]
 
-    assert "total_findings" in summary
-    assert "high" in summary
-    assert "medium" in summary
-    assert "low" in summary
+    assert "total_checks" in summary
+    assert "passed" in summary
+    assert "warnings" in summary
+    assert "critical" in summary
 
-    assert isinstance(summary["total_findings"], int)
-    assert isinstance(summary["high"], int)
-    assert isinstance(summary["medium"], int)
-    assert isinstance(summary["low"], int)
+    assert isinstance(summary["total_checks"], int)
+    assert isinstance(summary["passed"], int)
+    assert isinstance(summary["warnings"], int)
+    assert isinstance(summary["critical"], int)
 
 
 def test_run_security_audit_findings_and_recommendations():
@@ -51,17 +51,17 @@ def test_run_security_audit_findings_and_recommendations():
         assert isinstance(finding, dict)
 
     for recommendation in result["recommendations"]:
-        assert isinstance(recommendation, dict)
+        assert isinstance(recommendation, str)
 
 
 def test_run_protected_audit_allows_valid_license(monkeypatch, tmp_path):
     fake_report = {
         "score": 90,
         "summary": {
-            "total_findings": 0,
-            "high": 0,
-            "medium": 0,
-            "low": 0,
+            "total_checks": 10,
+            "passed": 10,
+            "warnings": 0,
+            "critical": 0,
         },
         "findings": [],
         "recommendations": [],
@@ -171,23 +171,20 @@ def test_run_protected_audit_submits_report(monkeypatch, tmp_path):
     fake_report = {
         "score": 90,
         "summary": {
-            "total_findings": 1,
-            "high": 0,
-            "medium": 1,
-            "low": 0,
+            "total_checks": 10,
+            "passed": 9,
+            "warnings": 1,
+            "critical": 0,
         },
         "findings": [
             {
                 "risk": "medium",
-                "reason": "BitLocker disabled.",
+                "category": "bitlocker",
+                "message": "BitLocker disabled.",
             }
         ],
         "recommendations": [
-            {
-                "risk": "medium",
-                "reason": "BitLocker disabled.",
-                "recommendation": "Enable BitLocker.",
-            }
+            "Enable BitLocker.",
         ],
     }
 
@@ -248,10 +245,10 @@ def test_run_protected_audit_keeps_local_report_when_submission_fails(
     fake_report = {
         "score": 85,
         "summary": {
-            "total_findings": 1,
-            "high": 0,
-            "medium": 1,
-            "low": 0,
+            "total_checks": 10,
+            "passed": 9,
+            "warnings": 1,
+            "critical": 0,
         },
         "findings": [],
         "recommendations": [],

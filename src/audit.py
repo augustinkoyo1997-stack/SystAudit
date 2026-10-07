@@ -1,7 +1,4 @@
-from src.security_analysis import analyze_security
-from src.security_analysis import calculate_security_score
-from src.security_recommendations import generate_recommendations
-from src.security_report import generate_security_report
+from src.audit_engine import run_audit
 from src.report_export import export_report_to_json
 from src.license_guard import check_license
 from src.license_client import submit_audit_report
@@ -9,19 +6,7 @@ from src.license_client import submit_audit_report
 def run_security_audit():
     """Run a complete security audit and return the final report."""
 
-    findings = analyze_security()
-
-    score = calculate_security_score(findings)
-
-    recommendations = generate_recommendations(findings)
-
-    report = generate_security_report(
-        findings,
-        recommendations,
-        score,
-    )
-
-    return report
+    return run_audit()
 
 
 def run_and_export_security_audit(output_file="sysaudit_report.json"):
@@ -47,9 +32,10 @@ def print_security_report(report):
 
     print("\nFindings")
     print("--------")
-    print(f"HIGH   : {summary['high']}")
-    print(f"MEDIUM : {summary['medium']}")
-    print(f"LOW    : {summary['low']}")
+    print(f"CONTRÔLES : {summary['total_checks']}")
+    print(f"RÉUSSIS   : {summary['passed']}")
+    print(f"AVERT.    : {summary['warnings']}")
+    print(f"CRITIQUES : {summary['critical']}")
 
     print("\nRecommendations")
     print("---------------")
@@ -58,15 +44,9 @@ def print_security_report(report):
         print("No recommendations.")
     else:
         for recommendation in report["recommendations"]:
-            print(
-                f"[{recommendation['risk'].upper()}] "
-                f"{recommendation['reason']}"
-            )
-            print(
-                f"       → {recommendation['recommendation']}"
-            )
+            print(f"- {recommendation}")
 
-    print("\n" + "=" * 40)
+            print("\n" + "=" * 40)
 
 
 def run_protected_audit(license_key, output_file="sysaudit_report.json"):
