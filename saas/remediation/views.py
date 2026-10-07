@@ -1,4 +1,4 @@
-from django.contrib.auth.decorators import login_required
+﻿from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -11,12 +11,24 @@ from src.bitlocker_plan_factory import create_bitlocker_plans
 from src.bitlocker_remediation import analyze_bitlocker_state
 
 
+def _get_user_remediation(request, request_id):
+    """
+    Return only a remediation belonging to the authenticated user's license.
+    """
+
+    return get_object_or_404(
+        RemediationRequest,
+        pk=request_id,
+        audit_report__device__license__user=request.user,
+    )
+
+
 @login_required
 @require_POST
 def approve_remediation_request(request, request_id):
-    remediation_request = get_object_or_404(
-        RemediationRequest,
-        pk=request_id,
+    remediation_request = _get_user_remediation(
+        request,
+        request_id,
     )
 
     remediation_request.approve()
@@ -27,18 +39,18 @@ def approve_remediation_request(request, request_id):
 @login_required
 @require_POST
 def execute_remediation_request(request, request_id):
-    remediation_request = get_object_or_404(
-        RemediationRequest,
-        pk=request_id,
+    remediation_request = _get_user_remediation(
+        request,
+        request_id,
     )
 
-    # Une remÃ©diation doit obligatoirement Ãªtre approuvÃ©e
-    # avant de pouvoir Ãªtre exÃ©cutÃ©e.
+    # Une remédiation doit obligatoirement être approuvée
+    # avant de pouvoir être exécutée.
     if remediation_request.status != RemediationRequest.APPROVED:
         return redirect("dashboard")
 
-    # Pour le moment, seule l'exÃ©cution DRY-RUN est autorisÃ©e.
-    # Toute tentative REAL est bloquÃ©e cÃ´tÃ© serveur.
+    # Pour le moment, seule l'exécution DRY-RUN est autorisée.
+    # Toute tentative REAL est bloquée côté serveur.
     if remediation_request.execution_mode != RemediationRequest.DRY_RUN:
         remediation_request.start_execution()
 
@@ -49,7 +61,7 @@ def execute_remediation_request(request, request_id):
         return redirect("dashboard")
 
     try:
-        # Reconstruire le finding Ã  partir de la demande Django.
+        # Reconstruire le finding à partir de la demande Django.
         remediation_code = (
             remediation_request.remediation_id
             .replace("REM-", "")
@@ -67,22 +79,22 @@ def execute_remediation_request(request, request_id):
             "message": remediation_request.description,
         }
 
-        # CrÃ©er la remÃ©diation contrÃ´lÃ©e.
+        # Créer la remédiation contrôlée.
         remediation = create_remediation_from_finding(
             finding
         )
 
-        # L'approbation Django doit Ãªtre propagÃ©e
+        # L'approbation Django doit être propagée
         # vers l'objet Remediation.
         remediation.approve()
 
         # Passage APPROVED -> EXECUTING
         remediation_request.start_execution()
 
-        # ExÃ©cution contrÃ´lÃ©e :
-        # execute -> verify -> rollback si nÃ©cessaire.
+        # Exécution contrôlée :
+        # execute -> verify -> rollback si nécessaire.
         #
-        # BitLocker utilise un handler spÃ©cialisÃ©.
+        # BitLocker utilise un handler spécialisé.
         if category == "bitlocker":
             diagnostic = analyze_bitlocker_state()
             plans = create_bitlocker_plans(diagnostic)
@@ -93,7 +105,6 @@ def execute_remediation_request(request, request_id):
                 )
                 return redirect("dashboard")
 
-            # Pour cette phase, nous exÃ©cutons uniquement un DRY-RUN.
             target_volume = remediation_request.target_volume
 
             plan = next(
@@ -147,23 +158,18 @@ def execute_remediation_request(request, request_id):
 
         result = engine.run()
 
-        # RÃ©cupÃ©rer le message rÃ©el produit par le moteur.
         result_message = getattr(
             result,
             "message",
             "",
         )
 
-        # SuccÃ¨s uniquement si l'exÃ©cution ET
-        # la vÃ©rification ont rÃ©ussi.
         if engine.state == RemediationEngine.VERIFIED:
             remediation_request.mark_success(
                 result_message
                 or "Remediation executed and verified successfully."
             )
 
-        # Si la vÃ©rification Ã©choue et que le rollback
-        # rÃ©ussit, on conserve la trace du rollback.
         elif engine.state == RemediationEngine.ROLLED_BACK:
             remediation_request.mark_failed(
                 result_message

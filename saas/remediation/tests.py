@@ -4,6 +4,7 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from licensing.models import AuditReport, LicensedDevice
+from accounts.models import License
 from .models import RemediationRequest
 
 
@@ -730,3 +731,97 @@ class RemediationRequestViewTests(TestCase):
         )
 
         mock_analyze.assert_not_called()
+
+    def test_user_cannot_approve_another_users_remediation(self):
+        other_user = User.objects.create_user(
+            username="other_user",
+            password="StrongPassword123!",
+        )
+
+        other_license = other_user.license
+        other_device = LicensedDevice.objects.create(
+            license=other_license,
+            device_id="OTHER-DEVICE",
+        )
+
+        other_audit = AuditReport.objects.create(
+            device=other_device,
+            score=50,
+            summary={},
+            findings=[],
+            recommendations=[],
+        )
+
+        remediation = RemediationRequest.objects.create(
+            audit_report=other_audit,
+            remediation_id="REM-FIREWALL",
+            title="Other user's remediation",
+            description="Test authorization",
+            severity="HIGH",
+        )
+
+        self.client.login(
+            username=self.user.username,
+            password="password123",
+        )
+
+        response = self.client.post(
+            f"/remediation/approve/{remediation.id}/",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+        remediation.refresh_from_db()
+
+        self.assertEqual(
+            remediation.status,
+            RemediationRequest.PROPOSED,
+        )
+
+    def test_user_cannot_execute_another_users_remediation(self):
+        other_user = User.objects.create_user(
+            username="other_executor",
+            password="StrongPassword123!",
+        )
+
+        other_license = other_user.license
+
+        other_device = LicensedDevice.objects.create(
+            license=other_license,
+            device_id="OTHER-EXECUTION-DEVICE",
+        )
+
+        other_audit = AuditReport.objects.create(
+            device=other_device,
+            score=40,
+            summary={},
+            findings=[],
+            recommendations=[],
+        )
+
+        remediation = RemediationRequest.objects.create(
+            audit_report=other_audit,
+            remediation_id="REM-FIREWALL",
+            title="Other user's execution",
+            description="Test execution authorization",
+            severity="HIGH",
+            execution_mode=RemediationRequest.DRY_RUN,
+        )
+
+        self.client.login(
+            username=self.user.username,
+            password="password123",
+        )
+
+        response = self.client.post(
+            f"/remediation/execute/{remediation.id}/",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+        remediation.refresh_from_db()
+
+        self.assertEqual(
+            remediation.status,
+            RemediationRequest.PROPOSED,
+        ) 
