@@ -222,3 +222,97 @@ class AgentHeartbeatTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+class AgentRegistrationTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="agent_registration_user",
+            password="TestPassword123!",
+        )
+        self.license = self.user.license
+        self.license.max_devices = 2
+        self.license.save(update_fields=["max_devices"])
+
+        self.device = LicensedDevice.objects.create(
+            license=self.license,
+            device_id="REGISTRATION-PC-001",
+        )
+        self.url = "/api/agent/register/"
+
+    def payload(self):
+        return {
+            "key": str(self.license.key),
+            "device_id": self.device.device_id,
+        }
+
+    def test_register_new_agent_successfully(self):
+        response = self.client.post(
+            self.url, self.payload(), format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["registered"])
+        self.assertIn("secret", response.data)
+
+        agent = Agent.objects.get(device=self.device)
+        secret = response.data["secret"]
+        self.assertEqual(str(agent.agent_id), response.data["agent_id"])
+        self.assertTrue(agent.check_secret(secret))
+        self.assertNotEqual(agent.secret_hash, secret)
+
+    def test_register_rejects_duplicate_agent(self):
+        first = self.client.post(
+            self.url, self.payload(), format="json"
+        )
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            self.url, self.payload(), format="json"
+        )
+        self.assertEqual(second.status_code, 409)
+        self.assertNotIn("secret", second.data)
+        self.assertEqual(
+            Agent.objects.filter(device=self.device).count(), 1
+        )
+
+    def test_register_rejects_inactive_license(self):
+        self.license.is_active = False
+        self.license.save(update_fields=["is_active"])
+        response = self.client.post(
+            self.url, self.payload(), format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(response.data["registered"])
+
+    def test_register_rejects_expired_license(self):
+        self.license.expires_at = timezone.now() - timedelta(days=1)
+        self.license.save(update_fields=["expires_at"])
+        response = self.client.post(
+            self.url, self.payload(), format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(response.data["registered"])
+
+    def test_register_rejects_unactivated_device(self):
+        payload = {
+            "key": str(self.license.key),
+            "device_id": "UNKNOWN-REGISTRATION-PC",
+        }
+        response = self.client.post(
+            self.url, payload, format="json"
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.data["registered"])
+
+    def test_register_requires_license_and_device(self):
+        response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["registered"])
+
+    def test_register_rejects_unknown_license(self):
+        payload = self.payload()
+        payload["key"] = "00000000-0000-0000-0000-000000000000"
+        response = self.client.post(
+            self.url, payload, format="json"
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.data["registered"])

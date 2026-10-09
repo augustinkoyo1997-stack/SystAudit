@@ -1,5 +1,11 @@
 import json
 
+from django.db import IntegrityError, transaction
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from accounts.models import License
+from licensing.models import LicensedDevice
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -84,4 +90,97 @@ def agent_heartbeat(request):
             "agent_status": agent.status,
             "last_seen": agent.last_seen.isoformat(),
         }
+    )
+
+@api_view(["POST"])
+def agent_register(request):
+    key = request.data.get("key")
+    device_id = request.data.get("device_id")
+
+    if not key or not device_id:
+        return Response(
+            {
+                "registered": False,
+                "error": "License key and device ID are required.",
+            },
+            status=400,
+        )
+
+    try:
+        license_obj = License.objects.get(key=key)
+    except License.DoesNotExist:
+        return Response(
+            {"registered": False, "error": "Invalid license."},
+            status=404,
+        )
+    except (ValidationError, ValueError):
+        return Response(
+            {
+                "registered": False,
+                "error": "Invalid license format.",
+            },
+            status=400,
+        )
+
+    if not license_obj.is_valid:
+        return Response(
+            {
+                "registered": False,
+                "error": "License is invalid.",
+            },
+            status=403,
+        )
+
+    try:
+        device = LicensedDevice.objects.get(
+            license=license_obj,
+            device_id=device_id,
+        )
+    except LicensedDevice.DoesNotExist:
+        return Response(
+            {
+                "registered": False,
+                "error": "Device is not activated for this license.",
+            },
+            status=404,
+        )
+
+    secret = Agent.generate_secret()
+
+    try:
+        with transaction.atomic():
+            if Agent.objects.filter(device=device).exists():
+                return Response(
+                    {
+                        "registered": False,
+                        "error": (
+                            "Agent already registered. "
+                            "The secret cannot be retrieved again."
+                        ),
+                    },
+                    status=409,
+                )
+
+            agent = Agent(device=device)
+            agent.set_secret(secret)
+            agent.save()
+
+    except IntegrityError:
+        return Response(
+            {
+                "registered": False,
+                "error": "Agent already registered.",
+            },
+            status=409,
+        )
+
+    return Response(
+        {
+            "registered": True,
+            "agent_id": str(agent.agent_id),
+            "device_id": device.device_id,
+            "secret": secret,
+            "message": "Store this secret securely. It will not be shown again.",
+        },
+        status=201,
     )
