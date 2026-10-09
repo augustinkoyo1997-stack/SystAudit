@@ -1,8 +1,44 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import License
+
+
+class LicenseValidityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="license_test_user",
+            password="StrongPassword123!",
+        )
+        self.license = License.objects.get(
+            user=self.user,
+        )
+
+    def test_active_license_without_expiration_is_valid(self):
+        self.assertTrue(self.license.is_valid)
+
+    def test_inactive_license_is_invalid(self):
+        self.license.is_active = False
+
+        self.assertFalse(self.license.is_valid)
+
+    def test_expired_license_is_invalid(self):
+        self.license.expires_at = (
+            timezone.now() - timedelta(days=1)
+        )
+
+        self.assertFalse(self.license.is_valid)
+
+    def test_active_license_with_future_expiration_is_valid(self):
+        self.license.expires_at = (
+            timezone.now() + timedelta(days=30)
+        )
+
+        self.assertTrue(self.license.is_valid)
 
 
 class AuthenticationTests(TestCase):

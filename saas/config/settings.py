@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'accounts',
     'licensing',
     'remediation',
+    'agent',
 ]
 
 MIDDLEWARE = [

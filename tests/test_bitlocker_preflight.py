@@ -1,3 +1,4 @@
+
 from unittest.mock import patch
 
 from src.bitlocker_preflight import check_bitlocker_preflight
@@ -21,9 +22,9 @@ def test_tpm_ready_for_bitlocker_workflow():
         },
     )()
 
-    with patch(
-        "subprocess.run",
-        return_value=completed,
+    with (
+        patch("platform.system", return_value="Windows"),
+        patch("subprocess.run", return_value=completed),
     ):
         result = check_bitlocker_preflight()
 
@@ -53,9 +54,9 @@ def test_tpm_not_ready_blocks_workflow():
         },
     )()
 
-    with patch(
-        "subprocess.run",
-        return_value=completed,
+    with (
+        patch("platform.system", return_value="Windows"),
+        patch("subprocess.run", return_value=completed),
     ):
         result = check_bitlocker_preflight()
 
@@ -74,9 +75,9 @@ def test_tpm_command_failure():
         },
     )()
 
-    with patch(
-        "subprocess.run",
-        return_value=completed,
+    with (
+        patch("platform.system", return_value="Windows"),
+        patch("subprocess.run", return_value=completed),
     ):
         result = check_bitlocker_preflight()
 

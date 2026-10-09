@@ -1,10 +1,20 @@
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from accounts.models import License
 from .models import AuditReport, LicensedDevice
+
+
+def _get_license_error(license_obj):
+    """Retourne le motif d'invalidité de la licence, ou None si elle est valide."""
+    if license_obj.is_valid:
+        return None
+
+    if not license_obj.is_active:
+        return "License is inactive."
+
+    return "License expired."
 
 
 @api_view(["POST"])
@@ -39,23 +49,13 @@ def validate_license(request):
             status=400,
         )
 
-    if not license_obj.is_active:
-        return Response(
-            {
-                "valid": False,
-                "error": "License is inactive.",
-            },
-            status=403,
-        )
+    license_error = _get_license_error(license_obj)
 
-    if (
-        license_obj.expires_at is not None
-        and license_obj.expires_at <= timezone.now()
-    ):
+    if license_error:
         return Response(
             {
                 "valid": False,
-                "error": "License expired.",
+                "error": license_error,
             },
             status=403,
         )
@@ -113,23 +113,13 @@ def activate_device(request):
             status=400,
         )
 
-    if not license_obj.is_active:
-        return Response(
-            {
-                "activated": False,
-                "error": "License is inactive.",
-            },
-            status=403,
-        )
+    license_error = _get_license_error(license_obj)
 
-    if (
-        license_obj.expires_at is not None
-        and license_obj.expires_at <= timezone.now()
-    ):
+    if license_error:
         return Response(
             {
                 "activated": False,
-                "error": "License expired.",
+                "error": license_error,
             },
             status=403,
         )
@@ -293,23 +283,13 @@ def submit_audit_report(request):
             status=400,
         )
 
-    if not license_obj.is_active:
-        return Response(
-            {
-                "saved": False,
-                "error": "License is inactive.",
-            },
-            status=403,
-        )
+    license_error = _get_license_error(license_obj)
 
-    if (
-        license_obj.expires_at is not None
-        and license_obj.expires_at <= timezone.now()
-    ):
+    if license_error:
         return Response(
             {
                 "saved": False,
-                "error": "License expired.",
+                "error": license_error,
             },
             status=403,
         )
