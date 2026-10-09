@@ -1,7 +1,9 @@
+
 import uuid
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
 
 class License(models.Model):
@@ -55,3 +57,17 @@ class License(models.Model):
             self.plan == self.PLAN_PREMIUM
             and self.is_active
         )
+
+    @property
+    def is_valid(self):
+        """Vérifie si la licence est active et non expirée."""
+        if not self.is_active:
+            return False
+
+        if (
+            self.expires_at is not None
+            and self.expires_at <= timezone.now()
+        ):
+            return False
+
+        return True
