@@ -824,4 +824,40 @@ class RemediationRequestViewTests(TestCase):
         self.assertEqual(
             remediation.status,
             RemediationRequest.PROPOSED,
-        ) 
+        )
+    def test_dry_run_firewall_request_never_runs_system_commands(self):
+        request = RemediationRequest.objects.create(
+            audit_report=self.audit_report,
+            remediation_id="REM-FIREWALL",
+            title="Enable Windows Firewall",
+            description="Windows Firewall requires remediation.",
+            severity="HIGH",
+            execution_mode=RemediationRequest.DRY_RUN,
+        )
+        request.approve()
+
+        with (
+            patch(
+                "src.remediation_factory.enable_windows_firewall"
+            ) as mock_enable,
+            patch(
+                "src.firewall_remediation.subprocess.run"
+            ) as mock_subprocess,
+        ):
+            response = self.client.post(
+                reverse(
+                    "execute_remediation_request",
+                    args=[request.id],
+                )
+            )
+
+        self.assertEqual(response.status_code, 302)
+        mock_enable.assert_not_called()
+        mock_subprocess.assert_not_called()
+
+        request.refresh_from_db()
+
+        self.assertEqual(
+            request.status,
+            RemediationRequest.SUCCESS,
+        )

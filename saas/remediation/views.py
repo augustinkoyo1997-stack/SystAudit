@@ -151,10 +151,21 @@ def execute_remediation_request(request, request_id):
             engine = RemediationEngine(
                 remediation,
                 execution_handler=bitlocker_handler,
+                dry_run=(
+                    remediation_request.execution_mode
+                    == RemediationRequest.DRY_RUN
+                ),
+                allow_dry_run_handler=True,
             )
 
         else:
-            engine = RemediationEngine(remediation)
+            engine = RemediationEngine(
+                remediation,
+                dry_run=(
+                    remediation_request.execution_mode
+                    == RemediationRequest.DRY_RUN
+                ),
+            )
 
         result = engine.run()
 

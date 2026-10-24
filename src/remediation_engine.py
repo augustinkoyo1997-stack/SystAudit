@@ -22,9 +22,13 @@ class RemediationEngine:
         self,
         remediation: Remediation,
         execution_handler: Optional[Callable] = None,
+        dry_run: bool = False,
+        allow_dry_run_handler: bool = False,
     ):
         self.remediation = remediation
         self.execution_handler = execution_handler
+        self.dry_run = dry_run
+        self.allow_dry_run_handler = allow_dry_run_handler
         self.state = self.PROPOSED
 
     def sync_state(self) -> str:
@@ -60,6 +64,7 @@ class RemediationEngine:
 
         return self.remediation.execute()
 
+
     def run(self) -> RemediationResult:
         """
         Execute, verify, and optionally roll back a remediation.
@@ -76,6 +81,23 @@ class RemediationEngine:
             )
 
         self.state = self.APPROVED
+
+        # En DRY-RUN, ne jamais lancer une action générique.
+        # Seul un gestionnaire explicitement autorisé pour la
+        # simulation peut poursuivre le workflow.
+        if self.dry_run and not (
+            self.execution_handler is not None
+            and self.allow_dry_run_handler
+        ):
+            self.state = self.VERIFIED
+
+            return RemediationResult.success_result(
+                self.remediation.id,
+                (
+                    "DRY-RUN: simulation completed. "
+                    "No system-changing action was executed."
+                ),
+            )
 
         self.state = self.EXECUTING
         execution_result = self._execute()

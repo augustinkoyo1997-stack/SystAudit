@@ -356,3 +356,42 @@ def test_firewall_factory_remediation_rolls_back_after_failed_verification(
         "verify",
         ("restore", initial_state),
     ]
+
+def test_dry_run_never_executes_action_verification_or_rollback():
+    from unittest.mock import Mock
+
+    from src.remediation import Remediation
+    from src.remediation_engine import RemediationEngine
+
+    action = Mock(return_value=True)
+    verify = Mock(return_value=False)
+    rollback = Mock(return_value=True)
+
+    remediation = Remediation(
+        id="REM-FIREWALL-DRY-RUN",
+        title="Simulate firewall remediation",
+        description="Verify that dry-run never changes the system.",
+        severity="high",
+        category="firewall",
+        action=action,
+        verify_action=verify,
+        rollback_action=rollback,
+        requires_admin=False,
+        reversible=True,
+    )
+    remediation.approve()
+
+    engine = RemediationEngine(
+        remediation,
+        dry_run=True,
+    )
+
+    result = engine.run()
+
+    assert result.success is True
+    assert "DRY-RUN" in result.message
+    assert engine.state == RemediationEngine.VERIFIED
+
+    action.assert_not_called()
+    verify.assert_not_called()
+    rollback.assert_not_called()
