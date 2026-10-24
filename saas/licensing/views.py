@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.db import transaction
 
 from accounts.models import License
 from .models import AuditReport, LicensedDevice
@@ -72,6 +73,7 @@ def validate_license(request):
 
 
 @api_view(["POST"])
+@transaction.atomic
 def activate_device(request):
     key = request.data.get("key")
     device_id = request.data.get("device_id")
@@ -95,7 +97,7 @@ def activate_device(request):
         )
 
     try:
-        license_obj = License.objects.get(key=key)
+        license_obj = License.objects.select_for_update().get(key=key)
     except License.DoesNotExist:
         return Response(
             {

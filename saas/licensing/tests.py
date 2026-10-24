@@ -1,9 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from threading import Barrier
 
+from django.db import close_old_connections
+from django.test import TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
-from rest_framework.test import APITestCase
-
+from rest_framework.test import APIClient, APITestCase
 from accounts.models import License
 from .models import AuditReport, LicensedDevice
 
@@ -185,6 +188,73 @@ class LicenseActivationTests(APITestCase):
         self.assertEqual(
             response.data["error"],
             "Device ID is required.",
+        )
+
+
+class LicenseActivationConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="activation_concurrency_user",
+            password="TestPassword123!",
+        )
+
+        self.license = License.objects.get(user=self.user)
+        self.license.plan = License.PLAN_PREMIUM
+        self.license.is_active = True
+        self.license.max_devices = 2
+        self.license.expires_at = None
+        self.license.save()
+
+        # Un appareil est déjà activé : il ne reste qu'une place.
+        LicensedDevice.objects.create(
+            license=self.license,
+            device_id="PC-EXISTING",
+        )
+
+        self.url = "/api/license/activate/"
+        self.license_key = str(self.license.key)
+
+    def test_concurrent_activations_respect_device_limit(self):
+        barrier = Barrier(2)
+
+        def activate(device_id):
+            close_old_connections()
+            try:
+                client = APIClient()
+
+                # Les deux threads démarrent leur requête ensemble.
+                barrier.wait(timeout=10)
+
+                response = client.post(
+                    self.url,
+                    {
+                        "key": self.license_key,
+                        "device_id": device_id,
+                    },
+                    format="json",
+                )
+                return response.status_code
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_1 = executor.submit(activate, "PC-CONCURRENT-001")
+            future_2 = executor.submit(activate, "PC-CONCURRENT-002")
+
+            status_codes = [
+                future_1.result(timeout=20),
+                future_2.result(timeout=20),
+            ]
+
+        self.assertCountEqual(status_codes, [201, 409])
+
+        self.assertEqual(
+            LicensedDevice.objects.filter(
+                license=self.license,
+            ).count(),
+            2,
         )
 
 
