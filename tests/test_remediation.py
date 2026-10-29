@@ -654,4 +654,39 @@ def test_remediation_restores_previous_state_on_rollback():
         "Public": False,
         "Private": True,
     }
-    
+
+
+def test_direct_execution_in_dry_run_never_calls_system_actions():
+    from unittest.mock import Mock
+
+    from src.remediation import Remediation
+
+    action = Mock(return_value=True)
+    capture_state = Mock(return_value={"Firewall": True})
+    verify = Mock(return_value=True)
+    rollback = Mock(return_value=True)
+
+    remediation = Remediation(
+        id="REM-DIRECT-DRY-RUN",
+        title="Simulate remediation",
+        description="Direct execution must respect dry-run mode.",
+        severity="high",
+        category="firewall",
+        action=action,
+        capture_state_action=capture_state,
+        verify_action=verify,
+        rollback_action=rollback,
+        requires_admin=False,
+        reversible=True,
+    )
+    remediation.approve()
+
+    result = remediation.execute(dry_run=True)
+
+    assert result.success is True
+    assert "DRY-RUN" in result.message
+
+    action.assert_not_called()
+    capture_state.assert_not_called()
+    verify.assert_not_called()
+    rollback.assert_not_called()

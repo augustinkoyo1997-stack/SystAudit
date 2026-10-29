@@ -3,12 +3,35 @@ from datetime import timedelta
 from threading import Barrier
 
 from django.db import close_old_connections
-from django.test import TransactionTestCase
+from django.core.cache import cache
+from django.contrib.auth.models import AnonymousUser
+from django.test import SimpleTestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
-from rest_framework.test import APIClient, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
+from rest_framework.request import Request
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework.views import APIView
 from accounts.models import License
 from .models import AuditReport, LicensedDevice
+
+
+class PublicApiThrottleTests(SimpleTestCase):
+    def test_public_api_rate_limit_returns_429(self):
+        cache.clear()
+        request_factory = APIRequestFactory()
+        api_view = APIView()
+        throttle = AnonRateThrottle()
+        throttle.rate = "1/minute"
+        throttle.num_requests, throttle.duration = throttle.parse_rate(throttle.rate)
+        first_raw = request_factory.post("/api/license/validate/", REMOTE_ADDR="198.51.100.75")
+        second_raw = request_factory.post("/api/license/validate/", REMOTE_ADDR="198.51.100.75")
+        first_raw.user = AnonymousUser()
+        second_raw.user = AnonymousUser()
+        first = Request(first_raw)
+        second = Request(second_raw)
+        self.assertTrue(throttle.allow_request(first, api_view))
+        self.assertFalse(throttle.allow_request(second, api_view))
 
 
 class LicenseActivationTests(APITestCase):

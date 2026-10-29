@@ -1,0 +1,7 @@
+Bonjour {{ user.get_username }},
+
+Pour terminer la création de votre compte SystAudit, confirmez votre adresse e-mail en ouvrant ce lien :
+
+{{ verification_url }}
+
+Si vous n’avez pas demandé la création de ce compte, vous pouvez ignorer ce message.

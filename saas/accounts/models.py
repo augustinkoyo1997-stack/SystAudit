@@ -61,7 +61,7 @@ class License(models.Model):
     @property
     def is_valid(self):
         """Vérifie si la licence est active et non expirée."""
-        if not self.is_active:
+        if not self.is_active or not self.user.is_active:
             return False
 
         if (
@@ -71,3 +71,56 @@ class License(models.Model):
             return False
 
         return True
+
+
+class Workspace(models.Model):
+    """A shared company space backed by its owner's existing license."""
+
+    name = models.CharField(max_length=120)
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="owned_workspaces",
+    )
+    license = models.OneToOneField(
+        License,
+        on_delete=models.CASCADE,
+        related_name="workspace",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class WorkspaceMembership(models.Model):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+    ROLE_CHOICES = [
+        (OWNER, "Propriétaire"),
+        (ADMIN, "Administrateur"),
+        (MEMBER, "Membre"),
+    ]
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="workspace_membership",
+    )
+    role = models.CharField(max_length=12, choices=ROLE_CHOICES, default=MEMBER)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.user} — {self.workspace} ({self.role})"

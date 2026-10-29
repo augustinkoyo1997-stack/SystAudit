@@ -110,6 +110,7 @@
     }
 
     input[type="text"],
+    input[type="email"],
     input[type="password"] {
         width: 100%;
         padding: 14px 15px;
@@ -123,6 +124,7 @@
     }
 
     input[type="text"]:focus,
+    input[type="email"]:focus,
     input[type="password"]:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.10);
@@ -287,6 +289,25 @@
 
             <div class="help">
                 150 caractères maximum. Lettres, chiffres et @/./+/-/_ uniquement.
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="{{ form.email.id_for_label }}">
+                <span class="field-icon">✉️</span>
+                Adresse e-mail
+            </label>
+
+            {{ form.email }}
+
+            {% if form.email.errors %}
+                <div class="errors">
+                    {{ form.email.errors }}
+                </div>
+            {% endif %}
+
+            <div class="help">
+                Elle servira à récupérer votre compte si vous oubliez votre mot de passe.
             </div>
         </div>
 

@@ -309,6 +309,9 @@
             color: white;
             text-decoration: none;
             font-size: 13px;
+            border: 0;
+            cursor: pointer;
+            font-weight: 700;
             font-weight: 700;
             transition: 0.2s;
         }
@@ -676,6 +679,14 @@
 
 <main class="container">
 
+    {% if messages %}
+        <section aria-live="polite" style="margin-bottom:20px;">
+            {% for message in messages %}
+                <div class="section" style="padding:14px 18px;">{{ message }}</div>
+            {% endfor %}
+        </section>
+    {% endif %}
+
     <!-- =========================
          WELCOME
     ========================== -->
@@ -688,6 +699,46 @@
         <p>
             Voici l'état actuel de votre compte SystAudit.
         </p>
+    </section>
+
+    <section class="section">
+        <div class="section-header">
+            <div>
+                <h2>👥 Espace d'équipe</h2>
+                <p class="section-description">Partagez les appareils et les rapports de sécurité avec votre équipe.</p>
+            </div>
+        </div>
+        {% if workspace_membership %}
+            <p style="margin-bottom:14px;">Équipe : <strong>{{ workspace_membership.workspace.name }}</strong> — rôle : {{ workspace_membership.get_role_display }}</p>
+            {% if workspace_membership.role == "owner" or workspace_membership.role == "admin" %}
+                <form method="post" action="{% url 'add_workspace_member' %}" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+                    {% csrf_token %}
+                    <input type="email" name="email" required placeholder="Courriel d'un compte SystAudit confirmé" aria-label="Courriel du membre">
+                    <button type="submit" class="upgrade">Ajouter un membre</button>
+                </form>
+                <div class="device-list">
+                    {% for member in workspace_membership.workspace.memberships.all %}
+                        {% if member.user_id != request.user.id %}
+                            <div class="device" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                                <span>{{ member.user.email }} — {{ member.get_role_display }}</span>
+                                {% if member.role == "member" %}
+                                    <form method="post" action="{% url 'remove_workspace_member' member.user_id %}">
+                                        {% csrf_token %}<button type="submit" class="logout">Retirer</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="section-description" style="margin-bottom:14px;">Créez un espace PME. Vous pourrez y ajouter des comptes SystAudit confirmés; ils verront les appareils et rapports de cette licence.</p>
+            <form method="post" action="{% url 'create_workspace' %}" style="display:flex;gap:10px;flex-wrap:wrap;">
+                {% csrf_token %}
+                <input type="text" name="name" maxlength="120" required placeholder="Nom de votre entreprise" aria-label="Nom de l'entreprise">
+                <button type="submit" class="upgrade">Créer l'espace d'équipe</button>
+            </form>
+        {% endif %}
     </section>
 
 
@@ -766,6 +817,7 @@
 
         <div class="license-grid">
 
+            {% if can_manage_license %}
             <div class="info license-key-box">
 
                 <span>Clé de licence</span>
@@ -798,6 +850,12 @@
                 ></span>
 
             </div>
+            {% else %}
+            <div class="info license-key-box">
+                <span>Clé de licence</span>
+                <strong>Visible uniquement par le responsable de l'espace.</strong>
+            </div>
+            {% endif %}
 
 
             <div class="info">
@@ -837,11 +895,18 @@
         </div>
 
 
-        {% if license.plan == "free" %}
-
-            <a href="#" class="upgrade">
-                🚀 Passer à Premium
-            </a>
+        {% if can_manage_license and premium_price_xof > 0 and not license.is_valid %}
+            <form method="post" action="{% url 'start_premium_checkout' %}">
+                {% csrf_token %}
+                <button type="submit" class="upgrade">🚀 Activer ou renouveler Premium — {{ premium_price_xof }} FCFA / 30 jours</button>
+            </form>
+        {% elif can_manage_license and premium_price_xof > 0 and license.plan == "free" %}
+            <form method="post" action="{% url 'start_premium_checkout' %}">
+                {% csrf_token %}
+                <button type="submit" class="upgrade">🚀 Passer à Premium — {{ premium_price_xof }} FCFA / 30 jours</button>
+            </form>
+        {% elif can_manage_license and premium_price_xof <= 0 and license.plan == "free" %}
+            <p class="section-description">Le paiement en ligne sera disponible après configuration du tarif Premium.</p>
 
         {% endif %}
 
@@ -983,7 +1048,7 @@
 
                             <!-- REMEDIATION -->
 
-                            {% if finding.category == "bitlocker" or finding.category == "firewall" %}
+                            {% if can_manage_license and finding.category == "bitlocker" or can_manage_license and finding.category == "firewall" %}
 
                                 <form
                                     method="post"
@@ -1085,7 +1150,7 @@
 
                     <!-- PROPOSED -->
 
-                    {% if remediation.status == "PROPOSED" %}
+                    {% if remediation.status == "PROPOSED" and can_manage_license %}
 
                         <form
                             method="post"
@@ -1107,7 +1172,7 @@
 
                     <!-- APPROVED -->
 
-                    {% elif remediation.status == "APPROVED" %}
+                    {% elif remediation.status == "APPROVED" and can_manage_license %}
 
                         <div style="margin-top: 12px;">
 

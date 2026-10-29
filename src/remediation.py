@@ -176,7 +176,7 @@ class Remediation:
         except Exception:
             return False
 
-    def execute(self) -> RemediationResult:
+    def execute(self, dry_run: bool = False) -> RemediationResult:
         """
         Execute the remediation action only if it was approved
         and its preconditions are satisfied.
@@ -203,7 +203,15 @@ class Remediation:
                 f"Preconditions not satisfied for remediation '{self.id}'."
             )
 
+        if dry_run:
+            return RemediationResult.success_result(
+                self.id,
+                "DRY-RUN: simulation completed. "
+                "No system-changing action was executed.",
+            )
+
         if not self.capture_state():
+
             message = "Unable to capture the previous system state."
 
             self.logs.append(

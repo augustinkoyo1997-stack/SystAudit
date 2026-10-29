@@ -183,8 +183,20 @@ python -m pytest -v
 Dernière validation :
 
 ```text
-56 passed
+56 passed (suite pytest du moteur local; certains contrôles Windows nécessitent un accès local)
 ```
+
+### Tests de l'application SaaS
+
+Dans le dossier `saas`, la suite Django couvre les comptes, les espaces d'équipe,
+la facturation et les API :
+
+```powershell
+cd saas
+..\.venv\Scripts\python.exe manage.py test
+```
+
+Dernière validation de l'application SaaS : **96 tests réussis**.
 
 ## 🔎 Qualité du projet
 
@@ -213,6 +225,62 @@ SystAudit est actuellement principalement destiné à l'audit de postes Windows.
 La détection d'éléments suspects repose sur des règles d'analyse et ne constitue pas une preuve qu'un processus, service ou événement est malveillant.
 
 Les résultats doivent donc être interprétés dans leur contexte.
+
+## 🌐 Application SaaS
+
+Le dépôt contient aussi une application web Django dans `saas/`. Elle prend en
+charge les comptes avec confirmation d'adresse e-mail, les licences, les audits,
+et un espace partagé pour une PME. Un propriétaire peut ajouter des comptes
+SystAudit déjà inscrits et confirmés; les membres voient les appareils et les
+rapports de l'équipe, mais pas la clé de licence et ne peuvent pas approuver une
+remédiation.
+
+### Lancement local
+
+1. Copier `saas/env.example` vers `.env` à la racine du dépôt et remplacer les
+   valeurs de base de données et la clé Django.
+2. Démarrer PostgreSQL et créer la base et l'utilisateur indiqués dans `.env`.
+3. Depuis `saas/`, installer les dépendances du dépôt, appliquer les migrations,
+   puis lancer le serveur de développement :
+
+```powershell
+..\.venv\Scripts\python.exe -m pip install -r ..\requirements.txt
+..\.venv\Scripts\python.exe manage.py migrate
+..\.venv\Scripts\python.exe manage.py runserver
+```
+
+Ouvrir ensuite `http://127.0.0.1:8000/`. `runserver` sert uniquement aux essais
+locaux; le lancement public demande un serveur WSGI/ASGI, HTTPS et une base de
+données de production.
+
+### FedaPay
+
+Les paiements Premium sont préparés en XOF pour une période de 30 jours. Le
+retour du navigateur n'active jamais l'abonnement : seule la confirmation par
+webhook signé l'active. Le renouvellement est manuel; aucun prélèvement
+automatique récurrent n'est configuré.
+
+Pour activer les paiements, définir dans `.env` la clé secrète FedaPay, le tarif
+Premium entier en XOF, l'environnement (`sandbox` ou `live`) et le secret de
+signature du webhook. Dans le tableau FedaPay, configurer l'adresse publique
+`https://VOTRE-DOMAINE/billing/webhook/fedapay/` pour les événements de transaction
+approuvée et annulée. Garder `FEDAPAY_PREMIUM_PRICE_XOF=0` jusqu'à ce que le prix
+soit décidé; le bouton de paiement reste alors indisponible.
+
+### Avant l'ouverture au public
+
+- Configurer un domaine HTTPS, `DJANGO_DEBUG=False`, `DJANGO_ALLOWED_HOSTS` et
+  `DJANGO_CSRF_TRUSTED_ORIGINS` pour ce domaine.
+- Remplacer le courriel console par un fournisseur SMTP pour livrer les
+  confirmations de compte et les réinitialisations de mot de passe.
+- Créer le compte FedaPay marchand, tester les paiements en sandbox puis
+  configurer les secrets du compte live et le webhook HTTPS.
+- Les limites d'API sont activées par défaut; configurer un cache partagé pour
+  les répartir correctement sur plusieurs processus ou serveurs.
+- Planifier les sauvegardes PostgreSQL, la surveillance et la politique de
+  conservation/suppression des données.
+- Les remédiations demeurent en mode simulation (DRY-RUN); aucune modification
+  réelle du poste n'est activée depuis le SaaS.
 
 ## 🔒 Sécurité
 

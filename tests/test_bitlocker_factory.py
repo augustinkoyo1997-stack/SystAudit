@@ -39,14 +39,14 @@ def test_bitlocker_factory_creates_safe_remediation():
     assert remediation.requires_admin is True
     assert remediation.reversible is True
 
-    # BitLocker ne doit pas encore disposer
-    # d'une action automatique.
+    # Le workflow est décrit, mais aucune action n'est branchée
+    # dans la proposition : le test protège le mode dry-run.
     assert remediation.action is None
     assert remediation.verify_action is None
     assert remediation.rollback_action is None
 
-    # Le diagnostic doit être intégré à la proposition.
-    assert "Automatic BitLocker remediation is blocked" in (
+    # Le diagnostic et le workflow préparé sont intégrés à la proposition.
+    assert "Controlled BitLocker recovery workflow prepared" in (
         remediation.description
     )
 

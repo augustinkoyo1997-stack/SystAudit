@@ -20,6 +20,20 @@ class RegisterForm(UserCreationForm):
         ),
     )
 
+    email = forms.EmailField(
+        label="Adresse e-mail",
+        widget=forms.EmailInput(
+            attrs={
+                "placeholder": "vous@exemple.com",
+                "autocomplete": "email",
+            }
+        ),
+        error_messages={
+            "required": "Veuillez saisir votre adresse e-mail.",
+            "invalid": "Veuillez saisir une adresse e-mail valide.",
+        },
+    )
+
     password1 = forms.CharField(
         label="Mot de passe",
         widget=forms.PasswordInput(
@@ -48,7 +62,7 @@ class RegisterForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ("username", "password1", "password2")
+        fields = ("username", "email", "password1", "password2")
 
     def clean_username(self):
         username = self.cleaned_data["username"]
@@ -59,3 +73,13 @@ class RegisterForm(UserCreationForm):
             )
 
         return username
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip()
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Cette adresse e-mail est déjà utilisée."
+            )
+
+        return email

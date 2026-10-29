@@ -390,8 +390,58 @@ def test_dry_run_never_executes_action_verification_or_rollback():
 
     assert result.success is True
     assert "DRY-RUN" in result.message
-    assert engine.state == RemediationEngine.VERIFIED
+    assert engine.state == RemediationEngine.SIMULATED
 
     action.assert_not_called()
     verify.assert_not_called()
     rollback.assert_not_called()
+
+
+def test_allowed_dry_run_handler_never_verifies_or_rolls_back():
+    from unittest.mock import Mock
+
+    from src.remediation import Remediation, RemediationResult
+    from src.remediation_engine import RemediationEngine
+
+    action = Mock(return_value=True)
+    verify_action = Mock(return_value=False)
+    rollback_action = Mock(return_value=True)
+
+    remediation = Remediation(
+        id="REM-BITLOCKER-DRY-RUN",
+        title="Simulate BitLocker remediation",
+        description="A dry run must not trigger system operations.",
+        severity="high",
+        category="bitlocker",
+        action=action,
+        verify_action=verify_action,
+        rollback_action=rollback_action,
+        requires_admin=False,
+        reversible=True,
+    )
+    remediation.approve()
+
+    handler = Mock(
+        return_value=RemediationResult.success_result(
+            remediation.id,
+            "DRY-RUN: BitLocker simulation completed.",
+        )
+    )
+
+    engine = RemediationEngine(
+        remediation,
+        execution_handler=handler,
+        dry_run=True,
+        allow_dry_run_handler=True,
+    )
+
+    result = engine.run()
+
+    assert result.success is True
+    assert "DRY-RUN" in result.message
+
+    handler.assert_called_once_with(remediation)
+    action.assert_not_called()
+    verify_action.assert_not_called()
+    rollback_action.assert_not_called()
+    assert engine.state == RemediationEngine.SIMULATED

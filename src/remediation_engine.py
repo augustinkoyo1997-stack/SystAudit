@@ -9,6 +9,7 @@ class RemediationEngine:
     PROPOSED = "PROPOSED"
     APPROVED = "APPROVED"
     EXECUTING = "EXECUTING"
+    SIMULATED = "SIMULATED"
     EXECUTION_FAILED = "EXECUTION_FAILED"
     EXECUTED = "EXECUTED"
     VERIFYING = "VERIFYING"
@@ -89,7 +90,7 @@ class RemediationEngine:
             self.execution_handler is not None
             and self.allow_dry_run_handler
         ):
-            self.state = self.VERIFIED
+            self.state = self.SIMULATED
 
             return RemediationResult.success_result(
                 self.remediation.id,
@@ -98,11 +99,18 @@ class RemediationEngine:
                     "No system-changing action was executed."
                 ),
             )
-
         self.state = self.EXECUTING
         execution_result = self._execute()
+        if self.dry_run:
+            if execution_result.success:
+                self.state = self.SIMULATED
+            else:
+                self.state = self.EXECUTION_FAILED
+
+            return execution_result
 
         if not execution_result.success:
+
             self.state = self.EXECUTION_FAILED
             return execution_result
 

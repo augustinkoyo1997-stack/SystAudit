@@ -619,7 +619,7 @@ class RemediationRequestViewTests(TestCase):
         )
 
         self.assertIn(
-            "Remediation verification completed successfully.",
+            "DRY-RUN:",
             request.result_message,
         )
 
@@ -680,9 +680,9 @@ class RemediationRequestViewTests(TestCase):
         )
 
         self.assertIn(
-            "Remediation verification completed successfully.",
-            request.result_message,
-        )
+        "DRY-RUN:",
+        request.result_message,
+    )
 
 
     @patch(
@@ -729,7 +729,6 @@ class RemediationRequestViewTests(TestCase):
             "Real remediation execution is currently disabled.",
             request.result_message,
         )
-
         mock_analyze.assert_not_called()
 
     def test_user_cannot_approve_another_users_remediation(self):

@@ -73,7 +73,21 @@ INSTALLED_APPS = [
     'licensing',
     'remediation',
     'agent',
+    'billing',
 ]
+
+# Baseline limits for public API endpoints; production multi-worker deployments
+# should point Django's cache at one shared Redis service.
+REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.environ.get("API_ANON_RATE", "60/minute"),
+        "user": os.environ.get("API_USER_RATE", "300/minute"),
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -158,5 +172,26 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-# Email
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Email settings are configurable per environment. The console backend keeps
+# local development self-contained; production can provide an SMTP service.
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    "SystAudit <no-reply@localhost>",
+)
+
+# FedaPay; keep checkout unavailable until merchant credentials and a price are set.
+FEDAPAY_API_KEY = os.environ.get("FEDAPAY_API_KEY", "")
+FEDAPAY_ENVIRONMENT = os.environ.get("FEDAPAY_ENVIRONMENT", "sandbox")
+FEDAPAY_WEBHOOK_SECRET = os.environ.get("FEDAPAY_WEBHOOK_SECRET", "")
+FEDAPAY_PREMIUM_PRICE_XOF = int(os.environ.get("FEDAPAY_PREMIUM_PRICE_XOF", "0"))
+FEDAPAY_PREMIUM_MAX_DEVICES = int(os.environ.get("FEDAPAY_PREMIUM_MAX_DEVICES", "5"))

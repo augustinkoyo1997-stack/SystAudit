@@ -2,6 +2,7 @@
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
+from accounts.views import _license_for_user
 from .models import RemediationRequest
 
 from src.remediation_factory import create_remediation_from_finding
@@ -19,6 +20,7 @@ def _get_user_remediation(request, request_id):
     return get_object_or_404(
         RemediationRequest,
         pk=request_id,
+        audit_report__device__license=_license_for_user(request.user),
         audit_report__device__license__user=request.user,
     )
 
@@ -175,7 +177,14 @@ def execute_remediation_request(request, request_id):
             "",
         )
 
-        if engine.state == RemediationEngine.VERIFIED:
+        if engine.state == RemediationEngine.SIMULATED:
+            remediation_request.mark_success(
+                result_message
+                or "DRY-RUN: simulation completed. "
+                "No system-changing action was executed."
+            )
+
+        elif engine.state == RemediationEngine.VERIFIED:
             remediation_request.mark_success(
                 result_message
                 or "Remediation executed and verified successfully."

@@ -261,3 +261,53 @@ def test_restore_windows_firewall_state_returns_false_on_failure():
         result = restore_windows_firewall_state(state)
 
     assert result is False
+
+
+def test_dry_run_never_executes_action_verification_or_rollback():
+    from unittest.mock import Mock
+
+    from src.remediation import Remediation
+    from src.remediation_engine import RemediationEngine
+
+    action = Mock(return_value=True)
+    verify = Mock(return_value=False)
+    rollback = Mock(return_value=True)
+    capture_state = Mock(return_value={
+        "Domain": True,
+        "Public": False,
+        "Private": True,
+    })
+    restore_state = Mock(return_value=True)
+
+    remediation = Remediation(
+        id="REM-FIREWALL-DRY-RUN",
+        title="Simulate firewall remediation",
+        description="Verify that dry-run never changes the system.",
+        severity="high",
+        category="firewall",
+        action=action,
+        verify_action=verify,
+        rollback_action=rollback,
+        capture_state_action=capture_state,
+        restore_state_action=restore_state,
+        requires_admin=False,
+        reversible=True,
+    )
+    remediation.approve()
+
+    engine = RemediationEngine(
+        remediation,
+        dry_run=True,
+    )
+
+    result = engine.run()
+
+    assert result.success is True
+    assert "DRY-RUN" in result.message
+    assert engine.state == RemediationEngine.SIMULATED
+
+    action.assert_not_called()
+    verify.assert_not_called()
+    rollback.assert_not_called()
+    capture_state.assert_not_called()
+    restore_state.assert_not_called()
