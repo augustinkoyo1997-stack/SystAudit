@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
+from .models import ManagedComputer, RepairIntervention
+
 
 class RegisterForm(UserCreationForm):
     username = forms.CharField(
@@ -83,3 +85,27 @@ class RegisterForm(UserCreationForm):
             )
 
         return email
+
+
+class ManagedComputerForm(forms.ModelForm):
+    class Meta:
+        model = ManagedComputer
+        fields = (
+            "name", "brand", "model_name", "serial_number", "assigned_to",
+            "purchase_date", "purchase_cost_xof", "replacement_cost_xof",
+            "next_repair_estimate_xof", "deployment_profile",
+        )
+        widgets = {
+            "purchase_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class RepairInterventionForm(forms.ModelForm):
+    class Meta:
+        model = RepairIntervention
+        fields = ("performed_at", "title", "details", "cost_xof", "downtime_hours", "technician")
+        widgets = {
+            "performed_at": forms.DateInput(attrs={"type": "date"}),
+            "details": forms.Textarea(attrs={"rows": 3}),
+            "downtime_hours": forms.NumberInput(attrs={"min": "0", "step": "0.25"}),
+        }

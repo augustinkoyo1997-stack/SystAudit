@@ -656,6 +656,167 @@
             font-weight: 700;
             white-space: nowrap;
         }
+
+        /* Unified dashboard polish */
+        body {
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(ellipse at 8% 0%, rgba(22, 140, 224, .14), transparent 38%),
+                radial-gradient(ellipse at 94% 46%, rgba(36, 177, 151, .07), transparent 32%),
+                var(--bg);
+        }
+
+        .topbar {
+            border-bottom-color: rgba(172, 197, 224, .13);
+            background: rgba(7, 17, 31, .9);
+        }
+
+        .topbar-inner {
+            min-height: 72px;
+            max-width: 1180px;
+        }
+
+        .brand { letter-spacing: .01em; }
+
+        .brand-icon {
+            border-radius: 11px;
+            box-shadow: 0 8px 24px rgba(8, 118, 216, .25);
+        }
+
+        .logout {
+            border-color: rgba(172, 197, 224, .16);
+            background: rgba(255, 255, 255, .025);
+            font-weight: 650;
+        }
+
+        .container { padding-top: 34px; }
+
+        .welcome {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .welcome::before {
+            content: "ESPACE DE TRAVAIL";
+            display: block;
+            margin-bottom: 8px;
+            color: #41b9f4;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .14em;
+        }
+
+        .welcome h1 {
+            font-size: clamp(27px, 3.4vw, 35px);
+            letter-spacing: -.035em;
+        }
+
+        .welcome p { font-size: 14px; }
+
+        .section {
+            border-color: rgba(172, 197, 224, .13);
+            background: linear-gradient(160deg, rgba(16, 31, 49, .94), rgba(10, 22, 37, .98));
+            box-shadow: 0 17px 44px rgba(0, 0, 0, .15);
+        }
+
+        .section-header {
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .section-header h2 { letter-spacing: -.015em; }
+
+        .section-description { line-height: 1.5; }
+
+        .cards { gap: 15px; }
+
+        .card {
+            position: relative;
+            overflow: hidden;
+            border-color: rgba(172, 197, 224, .13);
+            background: linear-gradient(155deg, rgba(16, 31, 49, .96), rgba(10, 22, 37, .98));
+            transition: transform .18s ease, border-color .18s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(65, 185, 244, .3);
+        }
+
+        .card-icon {
+            border: 1px solid rgba(65, 185, 244, .12);
+            border-radius: 11px;
+        }
+
+        .section-header h2 { font-size: 18px; }
+
+        .info, .device, .audit-history-item {
+            border-color: rgba(172, 197, 224, .11);
+            background: rgba(5, 15, 27, .38);
+        }
+
+        .info { min-width: 0; }
+
+        .license-key-row strong { overflow-wrap: anywhere; }
+
+        input[type="email"] {
+            min-width: 0;
+            min-height: 42px;
+            flex: 1 1 280px;
+            padding: 10px 12px;
+            border: 1px solid rgba(172, 197, 224, .2);
+            border-radius: 8px;
+            outline: none;
+            background: #081421;
+            color: var(--text);
+            font: inherit;
+            font-size: 13px;
+        }
+
+        input[type="email"]:focus {
+            border-color: rgba(65, 185, 244, .68);
+            box-shadow: 0 0 0 3px rgba(65, 185, 244, .1);
+        }
+
+        .upgrade, .copy-button, .remediation-button {
+            border-radius: 8px;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .empty-state {
+            border-color: rgba(172, 197, 224, .2);
+            background: rgba(5, 15, 27, .35);
+        }
+
+        .audit-history-item {
+            grid-template-columns: 62px minmax(150px, 1fr) minmax(100px, 1.2fr);
+        }
+
+        .audit-history-bar { width: 100%; }
+
+        @media (max-width: 800px) {
+            .audit-history-item { grid-template-columns: 58px 1fr; }
+            .audit-history-bar { grid-column: 1 / -1; }
+            .topbar-inner { flex-wrap: wrap; }
+        }
+
+        @media (max-width: 520px) {
+            .topbar-inner { min-height: 64px; gap: 8px; }
+            .brand { font-size: 17px; }
+            .brand-icon { width: 36px; height: 36px; }
+            .topbar-inner > a.logout { padding: 8px 9px; font-size: 10px; }
+            .container { padding-top: 27px; }
+            .welcome { margin-bottom: 19px; }
+            .welcome h1 { font-size: 26px; }
+            .section-header { flex-direction: column; }
+            .section-header .audit-count { align-self: flex-start; }
+            .license-grid { gap: 10px; }
+            .info { padding: 14px; }
+            .audit-history-item { grid-template-columns: 1fr; }
+            .audit-history-bar { grid-column: auto; }
+        }
     </style>
 </head>
 
@@ -668,6 +829,9 @@
             <div class="brand-icon">S</div>
             <span>SystAudit</span>
         </div>
+
+        <a class="logout" href="{% url 'deployment' %}">🧰 Déploiement Windows / Office</a>
+        <a class="logout" href="{% url 'equipment' %}">💻 Parc informatique ({{ managed_computer_count }})</a>
 
         <a class="logout" href="{% url 'logout' %}">
             Se déconnecter
@@ -713,9 +877,20 @@
             {% if workspace_membership.role == "owner" or workspace_membership.role == "admin" %}
                 <form method="post" action="{% url 'add_workspace_member' %}" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
                     {% csrf_token %}
-                    <input type="email" name="email" required placeholder="Courriel d'un compte SystAudit confirmé" aria-label="Courriel du membre">
-                    <button type="submit" class="upgrade">Ajouter un membre</button>
+                    <input type="email" name="email" required placeholder="Adresse e-mail de la personne à inviter" aria-label="Adresse e-mail de la personne à inviter">
+                    <button type="submit" class="upgrade">Envoyer l’invitation</button>
                 </form>
+                {% if pending_invitations %}
+                    <div style="margin:4px 0 14px;font-size:13px;font-weight:700;">Invitations en attente</div>
+                    <div class="device-list" style="margin-bottom:18px;">
+                        {% for invitation in pending_invitations %}
+                            <div class="device" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                                <span>{{ invitation.email }}</span>
+                                <span class="device-info">{% if email_console_mode %}Lien affiché dans PowerShell{% else %}Courriel envoyé{% endif %} · expire le {{ invitation.expires_at|date:"d/m/Y" }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 <div class="device-list">
                     {% for member in workspace_membership.workspace.memberships.all %}
                         {% if member.user_id != request.user.id %}
@@ -732,7 +907,7 @@
                 </div>
             {% endif %}
         {% else %}
-            <p class="section-description" style="margin-bottom:14px;">Créez un espace PME. Vous pourrez y ajouter des comptes SystAudit confirmés; ils verront les appareils et rapports de cette licence.</p>
+            <p class="section-description" style="margin-bottom:14px;">Créez un espace PME. Vous pourrez inviter des collègues par e-mail; ils verront les appareils et rapports de cette licence après avoir accepté.</p>
             <form method="post" action="{% url 'create_workspace' %}" style="display:flex;gap:10px;flex-wrap:wrap;">
                 {% csrf_token %}
                 <input type="text" name="name" maxlength="120" required placeholder="Nom de votre entreprise" aria-label="Nom de l'entreprise">

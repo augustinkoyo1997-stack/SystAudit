@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déploiement — SystAudit</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            color-scheme: dark;
+            --page: #07111f;
+            --surface: #0c1929;
+            --surface-soft: #101f31;
+            --line: rgba(172, 197, 224, .13);
+            --text: #f4f8fc;
+            --muted: #9aacc0;
+            --blue: #41b9f4;
+            --blue-strong: #168ce0;
+            --green: #49d2a0;
+            --amber: #f3bc62;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(ellipse at 8% 0%, rgba(22, 140, 224, .14), transparent 38%),
+                radial-gradient(ellipse at 94% 46%, rgba(36, 177, 151, .08), transparent 32%),
+                var(--page);
+            font: 15px/1.55 Inter, "Segoe UI", Arial, sans-serif;
+        }
+        a { color: inherit; text-decoration: none; }
+        .topbar { border-bottom: 1px solid var(--line); background: rgba(7, 17, 31, .86); }
+        .topbar-inner, main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+        .topbar-inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .brand { display: flex; align-items: center; gap: 11px; font-weight: 750; letter-spacing: .01em; }
+        .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: linear-gradient(145deg, #23b5f2, #0876d8); box-shadow: 0 8px 24px rgba(8, 118, 216, .25); }
+        .brand-mark svg { width: 21px; height: 21px; }
+        .back-link { color: #c8d6e5; font-size: 13px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; transition: .18s ease; }
+        .back-link:hover { color: white; border-color: rgba(65, 185, 244, .45); background: rgba(65, 185, 244, .07); }
+        main { padding: 42px 0 64px; }
+        .page-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 25px; }
+        .eyebrow { color: var(--blue); text-transform: uppercase; letter-spacing: .13em; font-size: 10px; font-weight: 800; margin: 0 0 9px; }
+        h1 { margin: 0; font-size: clamp(27px, 4vw, 36px); line-height: 1.15; letter-spacing: -.035em; }
+        .subtitle { color: var(--muted); margin: 9px 0 0; max-width: 640px; }
+        .mode-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid rgba(73, 210, 160, .2); border-radius: 30px; color: #9be8c9; background: rgba(73, 210, 160, .07); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+        .mode-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 11px rgba(73, 210, 160, .7); }
+        .notice { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; margin: 0 0 26px; padding: 16px 18px; border: 1px solid rgba(243, 188, 98, .2); border-radius: 12px; background: linear-gradient(100deg, rgba(243, 188, 98, .09), rgba(243, 188, 98, .025)); color: #d8c8a5; }
+        .notice-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: rgba(243, 188, 98, .12); color: var(--amber); font-weight: 800; }
+        .notice strong { display: block; margin-bottom: 2px; color: #ffdaa0; font-size: 13px; }
+        .notice p { margin: 0; font-size: 12px; }
+        .section { overflow: hidden; margin-top: 20px; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(160deg, rgba(16, 31, 49, .93), rgba(10, 22, 37, .97)); box-shadow: 0 17px 44px rgba(0, 0, 0, .16); }
+        .section-head { display: flex; align-items: flex-start; gap: 13px; padding: 21px 23px 18px; border-bottom: 1px solid var(--line); }
+        .section-icon { flex: 0 0 38px; height: 38px; display: grid; place-items: center; border: 1px solid rgba(65, 185, 244, .18); border-radius: 10px; background: rgba(65, 185, 244, .08); color: #75d0ff; }
+        .section-icon svg { width: 19px; height: 19px; }
+        .section-title { margin: 0; font-size: 16px; font-weight: 740; letter-spacing: -.01em; }
+        .section-desc { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+        .section-body { padding: 20px 23px 23px; }
+        .iso-list { display: grid; gap: 14px; }
+        .iso-card { padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: rgba(5, 15, 27, .42); }
+        .iso-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .file-meta { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .file-icon { flex: 0 0 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: rgba(65, 185, 244, .08); color: #7bd4ff; font-size: 11px; font-weight: 800; }
+        .file-name { overflow-wrap: anywhere; font-size: 13px; font-weight: 700; }
+        .file-size { margin-top: 2px; color: var(--muted); font-size: 11px; }
+        .field-grid { display: grid; grid-template-columns: 1.4fr .8fr .8fr; gap: 13px; margin-top: 20px; }
+        label { display: block; margin: 0 0 6px; color: #bfcede; font-size: 11px; font-weight: 650; }
+        input, select { width: 100%; min-height: 41px; padding: 9px 11px; border: 1px solid rgba(172, 197, 224, .19); border-radius: 8px; outline: none; background: #081421; color: var(--text); font: inherit; font-size: 12px; transition: border .16s, box-shadow .16s; }
+        input:focus, select:focus { border-color: rgba(65, 185, 244, .68); box-shadow: 0 0 0 3px rgba(65, 185, 244, .1); }
+        input::placeholder { color: #75899e; }
+        .field-help { display: block; margin-top: 5px; color: #7f94aa; font-size: 10px; }
+        .confirm-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: end; margin-top: 15px; }
+        .button { min-height: 40px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; padding: 0 14px; color: white; background: linear-gradient(135deg, #179fe9, #0877d4); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; transition: transform .16s, filter .16s, box-shadow .16s; }
+        .button:hover { transform: translateY(-1px); filter: brightness(1.09); box-shadow: 0 8px 19px rgba(8, 119, 212, .2); }
+        .button-secondary { border-color: rgba(172, 197, 224, .2); color: #e1edf8; background: #13253a; }
+        .button-secondary:hover { border-color: rgba(65, 185, 244, .4); box-shadow: none; }
+        .text-button { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+        .divider { height: 1px; margin: 18px 0 0; background: var(--line); }
+        .requirement { display: flex; gap: 8px; align-items: flex-start; margin-top: 15px; color: #8fa3b8; font-size: 11px; }
+        .requirement span { color: var(--blue); }
+        .empty { display: grid; place-items: center; text-align: center; padding: 34px 18px; border: 1px dashed rgba(172, 197, 224, .2); border-radius: 11px; color: var(--muted); }
+        .empty-icon { width: 45px; height: 45px; margin-bottom: 10px; display: grid; place-items: center; border-radius: 13px; background: rgba(65, 185, 244, .07); color: #79d3ff; font-size: 19px; }
+        .empty strong { color: #d6e1ec; font-size: 13px; }
+        .empty p { margin: 4px 0 0; font-size: 11px; }
+        .office-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 13px; }
+        .footnote { margin: 14px 0 0; color: #7f94aa; font-size: 10px; }
+        .message { margin: 0 0 14px; padding: 12px 14px; border: 1px solid rgba(255, 102, 117, .25); border-radius: 9px; color: #ffd6da; background: rgba(255, 102, 117, .08); font-size: 12px; }
+        .message.success { border-color: rgba(73, 210, 160, .24); color: #a1e9cd; background: rgba(73, 210, 160, .07); }
+        .result { border-color: rgba(73, 210, 160, .24); }
+        .result-body { padding: 18px 22px; }
+        .result-title { margin: 0 0 9px; color: #a2e9cd; font-size: 14px; }
+        pre { max-height: 360px; overflow: auto; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #07111d; color: #d3e0ec; font: 11px/1.65 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .digest { margin: 11px 0 0; color: var(--muted); font-size: 11px; }
+        .digest code { color: #dceafa; overflow-wrap: anywhere; }
+        .footer { padding: 24px 0 0; text-align: center; color: #657a90; font-size: 10px; }
+        @media (max-width: 760px) {
+            .page-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
+            .field-grid, .office-grid { grid-template-columns: 1fr 1fr; }
+            .topbar-inner, main { width: min(100% - 28px, 1120px); }
+            .section-head, .section-body { padding-left: 17px; padding-right: 17px; }
+        }
+        @media (max-width: 520px) {
+            .topbar-inner, main { width: calc(100% - 24px); }
+            .topbar-inner { min-height: 62px; }
+            main { padding-top: 29px; }
+            .brand { font-size: 13px; }
+            .brand-mark { width: 34px; height: 34px; }
+            .back-link { font-size: 11px; padding: 8px 9px; }
+            .field-grid, .office-grid, .confirm-row { grid-template-columns: 1fr; }
+            .confirm-row .button { width: 100%; }
+            .iso-summary { align-items: flex-start; flex-direction: column; }
+            .notice { grid-template-columns: 28px 1fr; padding: 13px; }
+            .notice-icon { width: 26px; height: 26px; }
+        }
+    </style>
+</head>
+<body>
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="{% url 'dashboard' %}">
+            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.8 19 5.5v5.6c0 4.9-3.1 8.2-7 10.1-3.9-1.9-7-5.2-7-10.1V5.5l7-2.7Z" stroke="currentColor" stroke-width="1.8"/><path d="m8.8 11.9 2.1 2.1 4.4-4.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>SystAudit</span>
+        </a>
+        <a class="back-link" href="{% url 'dashboard' %}">← <span>Tableau de bord</span></a>
+    </div>
+</header>
+
+<main>
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">Outils de déploiement</p>
+            <h1>Windows et Office</h1>
+            <p class="subtitle">Prépare tes supports et tes paramètres d’installation dans un espace unique.</p>
+        </div>
+        <div class="mode-chip"><span class="mode-dot"></span> PRÉPARATION LOCALE</div>
+    </div>
+
+    <aside class="notice">
+        <span class="notice-icon" aria-hidden="true">i</span>
+        <div><strong>Tu gardes le contrôle de l’installation</strong><p>Cette page prépare des fichiers uniquement. Elle n’installe pas Windows ou Office et ne formate aucune clé USB. La création d’un ISO nécessite une confirmation séparée; l’installation Windows te laissera choisir le disque cible.</p></div>
+    </aside>
+
+    {% if messages %}
+        {% for message in messages %}<div class="message {% if message.tags == 'success' %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+    {% endif %}
+
+    <section class="section" aria-labelledby="windows-title">
+        <div class="section-head">
+            <div class="section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="4" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="3" y="13" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="13" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.7"/></svg></div>
+            <div><h2 class="section-title" id="windows-title">Préparation d’un ISO Windows</h2><p class="section-desc">Inspecte les éditions présentes, puis prépare une copie amorçable à ta convenance.</p></div>
+        </div>
+        <div class="section-body">
+            {% if iso_files %}
+                <div class="iso-list">
+                    {% for iso in iso_files %}
+                    <article class="iso-card">
+                        <div class="iso-summary">
+                            <div class="file-meta">
+                                <div class="file-icon" aria-hidden="true">ISO</div>
+                                <div><div class="file-name">{{ iso.name }}</div><div class="file-size">{{ iso.size_mb }} Mo · dans le dossier media</div></div>
+                            </div>
+                            <form method="post">
+                                {% csrf_token %}<input type="hidden" name="action" value="inspect"><input type="hidden" name="iso_name" value="{{ iso.name }}">
+                                <button class="button button-secondary" type="submit">Inspecter l’ISO <span aria-hidden="true">→</span></button>
+                            </form>
+                        </div>
+
+                        {% if can_manage_license %}
+                        <div class="divider"></div>
+                        <form method="post">
+                            {% csrf_token %}<input type="hidden" name="action" value="build"><input type="hidden" name="iso_name" value="{{ iso.name }}">
+                            <div class="field-grid">
+                                <div><label for="output-{{ forloop.counter }}">Nom du fichier préparé</label><input id="output-{{ forloop.counter }}" name="output_name" value="Windows11-fr-configure.iso" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.iso"><span class="field-help">Une copie distincte sera créée.</span></div>
+                                <div><label for="index-{{ forloop.counter }}">Édition (index facultatif)</label><input id="index-{{ forloop.counter }}" name="image_index" type="number" min="1" placeholder="Ex. 6"><span class="field-help">Consulte les index après inspection.</span></div>
+                                <div><label for="language-{{ forloop.counter }}">Langue de configuration</label><select id="language-{{ forloop.counter }}" name="language"><option value="fr-FR">Français (France)</option><option value="en-US">English (United States)</option></select></div>
+                            </div>
+                            <div class="confirm-row">
+                                <div><label for="confirm-{{ forloop.counter }}">Confirme la création en saisissant CREER ISO</label><input id="confirm-{{ forloop.counter }}" name="confirm_build" required autocomplete="off" placeholder="CREER ISO"></div>
+                                <button class="button" type="submit">Créer la copie préparée</button>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty"><div><div class="empty-icon" aria-hidden="true">＋</div><strong>Aucun ISO Windows trouvé</strong><p>Dépose un fichier ISO dans <code>sysaudit\media</code> pour le voir apparaître ici.</p></div></div>
+            {% endif %}
+            <p class="requirement"><span aria-hidden="true">●</span><span>Prérequis :</span> les Deployment Tools (Oscdimg) du Windows ADK et plusieurs gigaoctets d’espace libre. La préparation peut prendre plusieurs minutes.</p>
+        </div>
+    </section>
+
+    <section class="section" aria-labelledby="office-title">
+        <div class="section-head">
+            <div class="section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 20 7.2v9.6L12 21l-8-4.2V7.2L12 3Z" stroke="currentColor" stroke-width="1.7"/><path d="m12 3 0 18M4 7.2l16 9.6M20 7.2 4 16.8" stroke="currentColor" stroke-width="1.2"/></svg></div>
+            <div><h2 class="section-title" id="office-title">Configuration Microsoft Office</h2><p class="section-desc">Génère un XML prêt à être utilisé avec l’Office Deployment Tool.</p></div>
+        </div>
+        <div class="section-body">
+            <form method="post">
+                {% csrf_token %}<input type="hidden" name="action" value="office-config">
+                <div class="office-grid">
+                    <div><label for="product-id">Product ID</label><input id="product-id" name="product_id" value="O365BusinessRetail" required maxlength="80"><span class="field-help">Il doit correspondre à ta licence Microsoft.</span></div>
+                    <div><label for="office-language">Langue</label><input id="office-language" name="office_language" value="fr-fr" required></div>
+                    <div><label for="office-architecture">Architecture</label><select id="office-architecture" name="office_architecture"><option value="64">64 bits</option><option value="32">32 bits</option></select></div>
+                    <div><label for="office-channel">Canal de mise à jour</label><select id="office-channel" name="office_channel"><option>Current</option><option>MonthlyEnterprise</option><option>SemiAnnual</option><option>PerpetualVL2024</option><option>PerpetualVL2021</option><option>PerpetualVL2019</option></select></div>
+                </div>
+                <div class="actions" style="margin-top:17px"><button class="button" type="submit">Télécharger le fichier XML <span aria-hidden="true">↓</span></button></div>
+            </form>
+            <p class="footnote">Le fichier ne contient ni clé produit ni mot de passe. Cette action ne télécharge pas et n’installe pas Office.</p>
+        </div>
+    </section>
+
+    {% if result %}
+    <section class="section result" aria-live="polite">
+        <div class="result-body">
+            <h2 class="result-title">{{ result.title }}</h2>
+            {% if result.details %}<pre>{{ result.details }}</pre>{% endif %}
+            {% if result.digest %}<p class="digest">SHA-256 : <code>{{ result.digest }}</code></p>{% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <footer class="footer">SystAudit · Outils locaux de préparation</footer>
+</main>
+</body>
+</html>

@@ -99,5 +99,29 @@ def run_protected_audit(license_key, output_file="sysaudit_report.json"):
 
 
 if __name__ == "__main__":
-    report = run_and_export_security_audit()
-    print_security_report(report)
+    import argparse
+    from getpass import getpass
+
+    parser = argparse.ArgumentParser(description="Auditer ce poste avec sysAudit.")
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Envoyer le rapport à l'espace SaaS après l'audit.",
+    )
+    parser.add_argument(
+        "--output",
+        default="sysaudit_report.json",
+        help="Chemin du rapport JSON local.",
+    )
+    arguments = parser.parse_args()
+
+    if arguments.upload:
+        license_key = getpass("Clé de licence sysAudit (saisie masquée) : ").strip()
+        if not license_key:
+            parser.error("Une clé de licence est requise pour envoyer l'audit.")
+        report = run_protected_audit(license_key, arguments.output)
+    else:
+        report = run_and_export_security_audit(arguments.output)
+
+    if report:
+        print_security_report(report)

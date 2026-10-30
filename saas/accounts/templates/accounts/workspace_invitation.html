@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation d’équipe — SystAudit</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; color: #f4f8fc; background: radial-gradient(ellipse at 10% 0%, rgba(22,140,224,.15), transparent 38%), #07111f; font: 15px/1.55 "Segoe UI", Arial, sans-serif; }
+        main { width: min(520px, 100%); padding: 32px; border: 1px solid rgba(172,197,224,.15); border-radius: 16px; background: #0c1929; box-shadow: 0 22px 70px rgba(0,0,0,.28); }
+        .brand { color: #70cdfc; font-weight: 800; letter-spacing: .02em; }
+        h1 { margin: 20px 0 8px; font-size: 25px; line-height: 1.2; }
+        p { color: #a8b8c9; }
+        strong { color: #f4f8fc; }
+        .box { margin: 20px 0; padding: 14px; border: 1px solid rgba(172,197,224,.12); border-radius: 10px; background: #081421; }
+        .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; margin: 4px 8px 0 0; padding: 0 15px; border: 0; border-radius: 8px; color: white; background: linear-gradient(135deg,#179fe9,#0877d4); font-weight: 700; text-decoration: none; cursor: pointer; }
+        .secondary { border: 1px solid rgba(172,197,224,.2); color: #dce8f5; background: #13253a; }
+        .note { font-size: 12px; }
+        form { display: inline; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="brand" href="{% url 'dashboard' %}">SystAudit</a>
+    {% if state == "ready" %}
+        <h1>Invitation à rejoindre une équipe</h1>
+        <p><strong>{{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }}</strong> vous invite à rejoindre l’espace <strong>{{ invitation.workspace.name }}</strong>.</p>
+        <div class="box"><span>Adresse invitée</span><br><strong>{{ invitation.email }}</strong></div>
+        {% if request.user.is_authenticated %}
+            <p>Connecté en tant que {{ request.user.email }}. En confirmant, ton compte rejoindra l’espace de l’équipe.</p>
+            <form method="post">{% csrf_token %}<button class="button" type="submit">Confirmer et rejoindre l’équipe</button></form>
+        {% endif %}
+        <p class="note">Cette invitation expire le {{ invitation.expires_at|date:"d/m/Y à H:i" }}.</p>
+    {% elif state == "sign_in" %}
+        <h1>Invitation à rejoindre {{ invitation.workspace.name }}</h1>
+        <p>Connecte-toi avec <strong>{{ invitation.email }}</strong> pour confirmer ton adresse et rejoindre l’équipe.</p>
+        <a class="button" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Se connecter</a>
+        <a class="button secondary" href="{% url 'register' %}">Créer un compte</a>
+        <p class="note">Après avoir confirmé ton adresse e-mail, ouvre de nouveau le lien d’invitation.</p>
+    {% elif state == "wrong_account" %}
+        <h1>Adresse e-mail différente</h1>
+        <p>Cette invitation a été envoyée à <strong>{{ invitation.email }}</strong>. Connecte-toi avec ce compte pour l’accepter.</p>
+        <a class="button" href="{% url 'logout' %}">Se déconnecter</a>
+    {% elif state == "already_member" %}
+        <h1>Compte déjà associé à une équipe</h1>
+        <p>Un compte SystAudit ne peut rejoindre qu’un seul espace d’équipe.</p>
+        <a class="button secondary" href="{% url 'dashboard' %}">Retour au tableau de bord</a>
+    {% elif state == "accepted" %}
+        <h1>Invitation déjà acceptée</h1>
+        <p>Cette invitation a déjà été utilisée.</p>
+        <a class="button secondary" href="{% url 'dashboard' %}">Ouvrir le tableau de bord</a>
+    {% else %}
+        <h1>Invitation expirée</h1>
+        <p>Cette invitation a expiré. Demande au propriétaire de l’équipe de t’en envoyer une nouvelle.</p>
+        <a class="button secondary" href="{% url 'login' %}">Retour à SystAudit</a>
+    {% endif %}
+</main>
+</body>
+</html>

@@ -11,6 +11,11 @@ from .views import (
     create_workspace_view,
     add_workspace_member_view,
     remove_workspace_member_view,
+    deployment_view,
+    accept_workspace_invitation_view,
+    equipment_view,
+    equipment_detail_view,
+    equipment_audit_report_view,
 )
 
 urlpatterns = [
@@ -53,8 +58,13 @@ urlpatterns = [
         name="password_reset_complete",
     ),
     path("dashboard/", dashboard_view, name="dashboard"),
+    path("dashboard/deployment/", deployment_view, name="deployment"),
+    path("dashboard/equipment/", equipment_view, name="equipment"),
+    path("dashboard/equipment/<str:asset_tag>/", equipment_detail_view, name="equipment_detail"),
+    path("dashboard/equipment/<str:asset_tag>/audit/<int:report_id>/", equipment_audit_report_view, name="equipment_audit_report"),
     path("dashboard/workspace/create/", create_workspace_view, name="create_workspace"),
     path("dashboard/workspace/members/add/", add_workspace_member_view, name="add_workspace_member"),
+    path("workspace/invitation/<uuid:token>/", accept_workspace_invitation_view, name="accept_workspace_invitation"),
     path("dashboard/workspace/members/<int:member_id>/remove/", remove_workspace_member_view, name="remove_workspace_member"),
     path(
     "dashboard/remediate/<int:audit_id>/<str:category>/",

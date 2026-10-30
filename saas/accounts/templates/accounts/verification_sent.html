@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Confirmez votre e-mail — SystAudit</title>
+    <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f2f6fb;color:#17283b;font:16px/1.6 "Segoe UI",Arial,sans-serif}main{width:min(520px,calc(100% - 40px));padding:32px;border:1px solid #dbe5ef;border-radius:16px;background:#fff;box-shadow:0 16px 45px #18324d14}h1{margin-top:0;color:#102b46}.notice{padding:14px;border-radius:10px;background:#fff7df;color:#76500b;font-size:14px}a{color:#0877c9;font-weight:700}</style>
 </head>
 <body>
     <main>
         <h1>Vérifiez votre boîte e-mail</h1>
         <p>Nous vous avons envoyé un lien pour confirmer votre adresse et activer votre compte SystAudit.</p>
         <p>Vous pourrez vous connecter une fois l’adresse confirmée.</p>
+        {% if email_console_mode %}<p class="notice">Mode local : le courriel et son lien de confirmation sont affichés dans la fenêtre PowerShell où le serveur SystAudit est lancé. Pour recevoir le message dans votre boîte, configurez un serveur SMTP.</p>{% endif %}
         <a href="{% url 'login' %}">Retour à la connexion</a>
     </main>
 </body>
