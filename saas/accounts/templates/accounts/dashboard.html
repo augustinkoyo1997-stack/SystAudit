@@ -916,6 +916,33 @@
         {% endif %}
     </section>
 
+    {% if workspace_membership %}
+    <section class="section">
+        <div class="section-header">
+            <div>
+                <h2>🕒 Activité récente</h2>
+                <p class="section-description">Suivez les principales actions réalisées dans votre espace d’équipe.</p>
+            </div>
+        </div>
+        {% if workspace_activity %}
+            <div class="device-list">
+                {% for activity in workspace_activity %}
+                    <div class="device" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span>
+                            <strong>{% if activity.actor %}{{ activity.actor.get_full_name|default:activity.actor.username }}{% else %}Agent SystAudit{% endif %}</strong>
+                            {{ activity.get_action_display }}
+                            {% if activity.target_label %}<strong>{{ activity.target_label }}</strong>{% endif %}
+                        </span>
+                        <span class="device-info">{{ activity.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="section-description">Les actions de l’équipe apparaîtront ici.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
 
     <!-- =========================
          SUMMARY

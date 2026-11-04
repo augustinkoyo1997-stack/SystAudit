@@ -19,7 +19,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from datetime import timedelta
 from pathlib import Path
 import base64
+import hashlib
 import re
+import secrets
 import tempfile
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -27,8 +29,18 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from remediation.models import RemediationRequest
 from licensing.models import AuditReport, LicensedDevice
 
-from .forms import ManagedComputerForm, RegisterForm, RepairInterventionForm
-from .models import ManagedComputer, RepairIntervention, Workspace, WorkspaceInvitation, WorkspaceMembership
+from .forms import DeploymentProfileForm, ManagedComputerForm, RegisterForm, RepairInterventionForm
+from .models import (
+    DeploymentBatch,
+    DeploymentProfile,
+    DeploymentRun,
+    ManagedComputer,
+    RepairIntervention,
+    Workspace,
+    WorkspaceActivity,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+)
 from src.deployment.office import generate_office_configuration
 from src.deployment.windows_media import (
     DeploymentError,
@@ -113,6 +125,107 @@ def deployment_view(request):
     )
 
 
+@login_required
+def deployment_center_view(request):
+    """Manage reusable deployment profiles and queue requests for WinPE clients."""
+    media_dir = _deployment_media_dir().resolve()
+    media_dir.mkdir(parents=True, exist_ok=True)
+    iso_names = sorted(
+        candidate.name for candidate in media_dir.iterdir()
+        if candidate.is_file() and candidate.suffix.lower() == ".iso"
+    )
+    membership = getattr(request.user, "workspace_membership", None)
+    workspace = membership.workspace if membership else None
+    can_manage = not membership or membership.role in {WorkspaceMembership.OWNER, WorkspaceMembership.ADMIN}
+    profiles = DeploymentProfile.objects.filter(workspace=workspace, owner=request.user) if not workspace else DeploymentProfile.objects.filter(workspace=workspace)
+    batches = DeploymentBatch.objects.filter(workspace=workspace).select_related("profile", "requested_by") if workspace else DeploymentBatch.objects.filter(workspace__isnull=True, requested_by=request.user).select_related("profile", "requested_by")
+
+    if request.method == "POST" and not can_manage:
+        messages.error(request, "Seuls le propriétaire ou un administrateur peuvent préparer un déploiement.")
+        return redirect("deployment_center")
+
+    profile_form = DeploymentProfileForm(iso_names=iso_names)
+    if request.method == "POST" and request.POST.get("action") == "create-profile":
+        profile_form = DeploymentProfileForm(request.POST, iso_names=iso_names)
+        if profile_form.is_valid():
+            profile = profile_form.save(commit=False)
+            profile.owner = request.user
+            profile.workspace = workspace
+            profile.save()
+            messages.success(request, f"Le profil « {profile.name} » est enregistré sur le central.")
+            return redirect("deployment_center")
+    elif request.method == "POST" and request.POST.get("action") == "queue-batch":
+        try:
+            profile = profiles.get(pk=int(request.POST.get("profile_id", "")))
+            target_count = int(request.POST.get("target_count", "1"))
+            if not 1 <= target_count <= 50:
+                raise ValueError
+        except (DeploymentProfile.DoesNotExist, TypeError, ValueError):
+            messages.error(request, "Choisis un profil disponible et un nombre de postes entre 1 et 50.")
+        else:
+            claim_codes = []
+            with transaction.atomic():
+                batch = DeploymentBatch.objects.create(
+                    workspace=workspace,
+                    profile=profile,
+                    requested_by=request.user,
+                    target_count=target_count,
+                )
+                for number in range(1, target_count + 1):
+                    token = secrets.token_urlsafe(32)
+                    DeploymentRun.objects.create(
+                        batch=batch,
+                        token_hash=hashlib.sha256(token.encode("ascii")).hexdigest(),
+                        expires_at=timezone.now() + timedelta(hours=12),
+                    )
+                    claim_codes.append({"number": number, "code": token})
+            request.session["deployment_claim_codes"] = {
+                "batch_id": batch.pk,
+                "profile_name": profile.name,
+                "codes": claim_codes,
+            }
+            messages.success(request, "La demande centrale est créée. Les codes temporaires ne sont affichés qu’une seule fois.")
+            return redirect("deployment_center")
+
+    batches = batches.prefetch_related("runs")
+    return render(request, "accounts/deployment_center.html", {
+        "profile_form": profile_form,
+        "profiles": profiles,
+        "batches": batches[:30],
+        "claim_codes": request.session.pop("deployment_claim_codes", None),
+        "can_manage": can_manage,
+        "winpe_ready": False,
+    })
+
+
+@login_required
+def confirm_deployment_run_view(request, run_id):
+    if request.method != "POST":
+        return redirect("deployment_center")
+    membership = getattr(request.user, "workspace_membership", None)
+    if membership:
+        if membership.role not in {WorkspaceMembership.OWNER, WorkspaceMembership.ADMIN}:
+            return redirect("deployment_center")
+        runs = DeploymentRun.objects.filter(batch__workspace=membership.workspace)
+    else:
+        runs = DeploymentRun.objects.filter(batch__workspace__isnull=True, batch__requested_by=request.user)
+    run = get_object_or_404(runs, pk=run_id)
+    expected_confirmation = f"AUTORISER {run.target_disk}"
+    if (
+        run.expires_at <= timezone.now()
+        or
+        run.status != DeploymentRun.STATUS_CONFIRMATION
+        or not run.target_disk
+        or request.POST.get("confirmation", "").strip() != expected_confirmation
+    ):
+        messages.error(request, "Le code a expiré ou la confirmation doit reprendre exactement le disque choisi par le poste.")
+        return redirect("deployment_center")
+    run.operator_confirmed_at = timezone.now()
+    run.save(update_fields=["operator_confirmed_at"])
+    messages.success(request, f"Le poste {run.machine_name} est autorisé à poursuivre sur le disque {run.target_disk}.")
+    return redirect("deployment_center")
+
+
 def _license_for_user(user):
     membership = getattr(user, "workspace_membership", None)
     if membership:
@@ -121,7 +234,17 @@ def _license_for_user(user):
 
 
 def _email_uses_console():
-    return settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend"
+    return settings.MAILERS["default"]["BACKEND"] == "django.core.mail.backends.console.EmailBackend"
+
+
+def _record_workspace_activity(workspace, actor, action, target_label=""):
+    if workspace:
+        WorkspaceActivity.objects.create(
+            workspace=workspace,
+            actor=actor,
+            action=action,
+            target_label=target_label,
+        )
 
 
 def register_view(request):
@@ -260,6 +383,14 @@ def dashboard_view(request):
             expires_at__gt=timezone.now(),
         )
 
+    workspace_activity = WorkspaceActivity.objects.none()
+    if workspace_membership:
+        workspace_activity = (
+            WorkspaceActivity.objects
+            .filter(workspace=workspace_membership.workspace)
+            .select_related("actor")[:12]
+        )
+
     audit_history_chart = list(reversed(audit_history[:10]))
 
     remediation_requests = []
@@ -292,6 +423,7 @@ def dashboard_view(request):
             "pending_invitations": pending_invitations,
             "managed_computer_count": _managed_computers_for_user(request.user).count(),
             "email_console_mode": _email_uses_console(),
+            "workspace_activity": workspace_activity,
         },
     )
 
@@ -314,6 +446,12 @@ def equipment_view(request):
             membership = getattr(request.user, "workspace_membership", None)
             computer.workspace = membership.workspace if membership else None
             computer.save()
+            _record_workspace_activity(
+                computer.workspace,
+                request.user,
+                WorkspaceActivity.ACTION_COMPUTER_ADDED,
+                f"{computer.asset_tag} — {computer.name}",
+            )
             messages.success(request, f"Le poste {computer.asset_tag} a été ajouté. Vous pouvez maintenant suivre sa préparation et ses interventions.")
             return redirect("equipment_detail", asset_tag=computer.asset_tag)
     else:
@@ -346,6 +484,12 @@ def equipment_detail_view(request, asset_tag):
                 intervention.computer = computer
                 intervention.created_by = request.user
                 intervention.save()
+                _record_workspace_activity(
+                    computer.workspace,
+                    request.user,
+                    WorkspaceActivity.ACTION_REPAIR_RECORDED,
+                    computer.asset_tag,
+                )
                 computer.status = ManagedComputer.STATUS_REPAIR
                 computer.save(update_fields=["status", "updated_at"])
                 messages.success(request, "L’intervention a été ajoutée à l’historique du poste.")
@@ -357,6 +501,12 @@ def equipment_detail_view(request, asset_tag):
             checklist_complete = all(getattr(computer, field) for field in fields)
             computer.status = ManagedComputer.STATUS_READY if checklist_complete else ManagedComputer.STATUS_PREPARING
             computer.save(update_fields=[*fields, "status", "updated_at"])
+            _record_workspace_activity(
+                computer.workspace,
+                request.user,
+                WorkspaceActivity.ACTION_COMPUTER_UPDATED,
+                f"{computer.asset_tag} — {computer.get_status_display()}",
+            )
             messages.success(request, "La checklist de préparation a été enregistrée." if not checklist_complete else "Préparation validée : le poste est prêt à être remis.")
             return redirect("equipment_detail", asset_tag=computer.asset_tag)
         elif action == "status":
@@ -365,6 +515,12 @@ def equipment_detail_view(request, asset_tag):
             if status in allowed:
                 computer.status = status
                 computer.save(update_fields=["status", "updated_at"])
+                _record_workspace_activity(
+                    computer.workspace,
+                    request.user,
+                    WorkspaceActivity.ACTION_COMPUTER_UPDATED,
+                    f"{computer.asset_tag} — {computer.get_status_display()}",
+                )
                 messages.success(request, "L’état du poste a été actualisé.")
                 return redirect("equipment_detail", asset_tag=computer.asset_tag)
             messages.error(request, "Choisis un état valide pour le poste.")
@@ -594,6 +750,12 @@ def create_workspace_view(request):
         user=request.user,
         role=WorkspaceMembership.OWNER,
     )
+    _record_workspace_activity(
+        workspace,
+        request.user,
+        WorkspaceActivity.ACTION_WORKSPACE_CREATED,
+        workspace.name,
+    )
     messages.success(request, "Votre espace d'équipe est créé.")
     return redirect("dashboard")
 
@@ -666,6 +828,12 @@ def add_workspace_member_view(request):
         messages.error(request, "L'invitation a été créée, mais l'envoi du courriel a échoué. Vérifiez la configuration e-mail et réessayez.")
         return redirect("dashboard")
 
+    _record_workspace_activity(
+        membership.workspace,
+        request.user,
+        WorkspaceActivity.ACTION_INVITATION_SENT,
+        email,
+    )
     if _email_uses_console():
         messages.success(request, f"Invitation créée pour {email}. En mode local, le courriel et son lien sont affichés dans la fenêtre PowerShell du serveur.")
     else:
@@ -714,6 +882,12 @@ def accept_workspace_invitation_view(request, token):
                     )
                     locked_invitation.accepted_at = timezone.now()
                     locked_invitation.save(update_fields=["accepted_at"])
+                    _record_workspace_activity(
+                        locked_invitation.workspace,
+                        request.user,
+                        WorkspaceActivity.ACTION_MEMBER_JOINED,
+                        request.user.email or request.user.username,
+                    )
                     messages.success(request, f"Vous avez rejoint l'équipe {locked_invitation.workspace.name}.")
                     return redirect("dashboard")
         except IntegrityError:
@@ -729,11 +903,18 @@ def remove_workspace_member_view(request, member_id):
     membership = getattr(request.user, "workspace_membership", None)
     if not membership or membership.role not in {WorkspaceMembership.OWNER, WorkspaceMembership.ADMIN}:
         return redirect("dashboard")
-    removed = WorkspaceMembership.objects.filter(
+    member = WorkspaceMembership.objects.select_related("user").filter(
         workspace=membership.workspace,
         user_id=member_id,
         role=WorkspaceMembership.MEMBER,
-    ).delete()[0]
-    if removed:
+    ).first()
+    if member:
+        _record_workspace_activity(
+            membership.workspace,
+            request.user,
+            WorkspaceActivity.ACTION_MEMBER_REMOVED,
+            member.user.email or member.user.username,
+        )
+        member.delete()
         messages.success(request, "Le membre a été retiré de l'équipe.")
     return redirect("dashboard")

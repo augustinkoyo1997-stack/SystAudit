@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import html
 from pathlib import Path
 
 
@@ -35,6 +36,24 @@ def _powershell(script: str, iso_path: Path) -> dict:
     )
     if result.returncode:
         detail = result.stderr.strip() or result.stdout.strip()
+        if "CLIXML" in detail or "<Objs" in detail:
+            error_match = re.search(r'<S\s+S="Error">(.*?)</S>', detail, re.DOTALL)
+            if error_match:
+                detail = html.unescape(error_match.group(1))
+                detail = re.sub(r"\\?_x000D__x000A_\\?", " ", detail)
+                detail = re.sub(r"\\?_x[0-9A-Fa-f]{4}_\\?", "", detail).strip()
+                quoted = re.search(r"[«\"](.+?)[»\"]", detail)
+                if quoted:
+                    detail = quoted.group(1).strip()
+        if "cim" in detail.casefold():
+            detail = (
+                "Windows n'a pas pu accéder au service CIM nécessaire pour monter cet ISO. "
+                "Vérifie que le service Windows Management Instrumentation fonctionne, puis "
+                "essaie dans PowerShell : Get-DiskImage -ImagePath \"chemin-vers-le-fichier.iso\". "
+                "Si cette commande échoue aussi, le problème vient du service Windows de gestion des images disque."
+            )
+        else:
+            detail = re.sub(r"(?m)^\s*Au caractère Ligne:.*$", "", detail).strip()
         raise DeploymentError(detail or "PowerShell n'a pas pu monter le fichier ISO.")
     try:
         return json.loads(result.stdout.strip())

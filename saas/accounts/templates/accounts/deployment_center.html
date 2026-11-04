@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Centre de déploiement — SystAudit</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#07111f;color:#f4f8fc;font:15px/1.55 "Segoe UI",Arial,sans-serif}a{color:#83d5ff;text-decoration:none}.top{padding:18px max(22px,calc((100% - 1120px)/2));border-bottom:1px solid #23344a;display:flex;justify-content:space-between}.top strong{font-size:18px}main{max-width:1120px;margin:auto;padding:38px 22px 70px}h1{font-size:clamp(27px,4vw,38px);margin:0}h2{font-size:18px;margin:0 0 5px}.muted,.help{color:#9aacc0}.intro{margin:8px 0 23px;color:#bac9d9;max-width:720px}.banner,.panel,.card{border:1px solid #26374c;border-radius:14px;background:#0d1a2a}.banner{padding:16px 18px;margin:18px 0;color:#d5c28d;background:#211e17;border-color:#54442a}.banner strong{color:#ffdc98}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{padding:21px;margin:18px 0}.panel>p{margin:0 0 17px}.field{margin:13px 0}.field label{display:block;margin-bottom:5px;font-weight:650;color:#d4e0ec}.field input,.field select{width:100%;padding:10px;border:1px solid #34475f;border-radius:8px;background:#081423;color:#f4f8fc}.field input[type=checkbox]{width:auto}.checks{display:grid;gap:8px;margin:10px 0}.checks label{display:flex;gap:9px;align-items:center;color:#d3deea}.button{border:0;border-radius:9px;padding:11px 15px;background:#138cda;color:white;font-weight:700;cursor:pointer}.button:hover{background:#0878c0}.card{padding:15px;margin-top:11px}.card-head{display:flex;justify-content:space-between;gap:12px}.tag{display:inline-block;margin:8px 5px 0 0;padding:4px 8px;border-radius:20px;background:#152b40;color:#c6d9eb;font-size:12px}.errors,.messages{padding:11px;border-radius:8px;background:#3a2025;color:#ffc4c4;margin:10px 0}.success{background:#17332c;color:#acead1}.empty{padding:20px;border:1px dashed #34475f;border-radius:10px;color:#aab9c9}.queue{display:grid;grid-template-columns:1fr 140px auto;gap:10px;align-items:end}.queue select,.queue input{width:100%;padding:10px;border:1px solid #34475f;border-radius:8px;background:#081423;color:#fff}.status{color:#f3c86f;font-weight:700;font-size:12px}.actions{display:flex;gap:15px;align-items:center;margin-top:20px}.foot{margin-top:35px;text-align:center;color:#71849a;font-size:12px}@media(max-width:760px){.grid{grid-template-columns:1fr}.queue{grid-template-columns:1fr}.actions{align-items:stretch;flex-direction:column}.actions .button{width:100%}}
+  </style>
+</head>
+<body>
+  <header class="top"><strong>🧰 SystAudit · Centre de déploiement</strong><a href="{% url 'deployment' %}">Préparation ISO / Office ←</a></header>
+  <main>
+    <p class="muted" style="margin:0 0 6px;text-transform:uppercase;letter-spacing:.13em;font-size:11px">Pilotage local du parc</p>
+    <h1>Profils et demandes de déploiement</h1>
+    <p class="intro">Définis une configuration Windows et une liste de logiciels, puis prépare une demande pour plusieurs postes du réseau de l’entreprise.</p>
+
+    {% for message in messages %}<div class="messages {% if message.tags == 'success' %}success{% endif %}">{{ message }}</div>{% endfor %}
+    <div class="banner"><strong>Le relais réseau et la clé WinPE ne sont pas encore installés.</strong> Cette étape enregistre les profils et les demandes dans SystAudit. Elle ne démarre, ne formate et n’installe aucun ordinateur. Le client de démarrage réseau sera nécessaire pour connecter les postes au PC central.</div>
+    {% if claim_codes %}
+    <section class="panel" style="border-color:#366c90;background:#10253a">
+      <h2>Codes temporaires de connexion</h2>
+      <p class="muted">Demande {{ claim_codes.batch_id }} · profil « {{ claim_codes.profile_name }} ». Ces codes sont affichés une seule fois. Ils expireront dans 12 heures. À utiliser uniquement avec les postes de cette entreprise.</p>
+      {% for item in claim_codes.codes %}<article class="card"><strong>Poste {{ item.number }}</strong><code style="display:block;overflow-wrap:anywhere;margin-top:8px;color:#9de0ff">{{ item.code }}</code></article>{% endfor %}
+      <p class="help">Le code permettra au futur client WinPE de s’annoncer. Le technicien devra ensuite confirmer l’identité du poste et le disque choisi avant l’installation.</p>
+    </section>
+    {% endif %}
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Créer un profil d’entreprise</h2><p class="muted">Choisis l’ISO, l’édition et les logiciels standard à préparer.</p>
+        {% if profile_form.errors %}<div class="errors">{{ profile_form.errors }}</div>{% endif %}
+        {% if can_manage %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="create-profile">
+          <div class="field">{{ profile_form.name.label_tag }}{{ profile_form.name }}{% if profile_form.name.errors %}<div class="errors">{{ profile_form.name.errors }}</div>{% endif %}</div>
+          <div class="field">{{ profile_form.windows_iso.label_tag }}{{ profile_form.windows_iso }}<small class="help">{{ profile_form.windows_iso.help_text }}</small>{% if profile_form.windows_iso.errors %}<div class="errors">{{ profile_form.windows_iso.errors }}</div>{% endif %}</div>
+          <div class="grid">
+            <div class="field">{{ profile_form.image_index.label_tag }}{{ profile_form.image_index }}</div>
+            <div class="field">{{ profile_form.language.label_tag }}{{ profile_form.language }}</div>
+          </div>
+          <div class="field"><label>{{ profile_form.applications.label }}</label><div class="checks">{% for choice in profile_form.applications %}<label>{{ choice.tag }} {{ choice.choice_label }}</label>{% endfor %}</div>{% if profile_form.applications.errors %}<div class="errors">{{ profile_form.applications.errors }}</div>{% endif %}</div>
+          <div class="field">{{ profile_form.office_product_id.label_tag }}{{ profile_form.office_product_id }}<small class="help">{{ profile_form.office_product_id.help_text }}</small></div>
+          <button class="button" type="submit">Enregistrer le profil</button>
+        </form>
+        {% else %}<div class="empty">Seul le propriétaire ou un administrateur peut créer un profil.</div>{% endif %}
+      </section>
+
+      <section class="panel">
+        <h2>Profils disponibles</h2><p class="muted">Ces profils seront proposés aux postes qui démarrent depuis WinPE.</p>
+        {% for profile in profiles %}
+          <article class="card"><div class="card-head"><strong>{{ profile.name }}</strong><span class="status">{{ profile.get_language_display }}</span></div><div class="muted" style="overflow-wrap:anywhere;margin-top:5px">{{ profile.windows_iso }}{% if profile.image_index %} · édition {{ profile.image_index }}{% endif %}</div>{% for application in profile.applications %}<span class="tag">{{ application }}</span>{% empty %}<div class="muted" style="margin-top:8px">Aucun logiciel sélectionné</div>{% endfor %}{% if profile.office_product_id %}<span class="tag">Office · {{ profile.office_product_id }}</span>{% endif %}</article>
+        {% empty %}<div class="empty">Aucun profil. Dépose d’abord un ISO dans le dossier media du PC central, puis crée un profil ici.</div>{% endfor %}
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Préparer une demande pour plusieurs postes</h2><p class="muted">La demande sera en attente jusqu’à ce que les postes démarrent sur la future clé WinPE et se connectent au relais central.</p>
+      {% if can_manage and profiles %}
+      <form method="post" class="queue">{% csrf_token %}<input type="hidden" name="action" value="queue-batch">
+        <div class="field"><label for="profile-id">Profil</label><select id="profile-id" name="profile_id" required>{% for profile in profiles %}<option value="{{ profile.pk }}">{{ profile.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="target-count">Nombre de postes</label><input id="target-count" type="number" name="target_count" value="1" min="1" max="50" required></div>
+        <button class="button" type="submit">Enregistrer la demande</button>
+      </form>
+      {% elif not can_manage %}<div class="empty">Les demandes sont réservées au propriétaire ou à un administrateur.</div>{% endif %}
+      <h2 style="margin-top:25px">Demandes récentes</h2>
+      {% for batch in batches %}<article class="card"><div class="card-head"><strong>{{ batch.profile.name }} · {{ batch.target_count }} poste(s)</strong><span class="status">{{ batch.get_status_display }}</span></div><div class="muted">Créée le {{ batch.created_at|date:"d/m/Y à H:i" }} par {{ batch.requested_by.username }}</div>
+        {% for run in batch.runs.all %}<div class="card" style="margin:12px 0 0;background:#0a1523"><div class="card-head"><strong>{{ run.machine_name|default:"Poste non connecté" }}</strong><span class="status">{{ run.get_status_display }}</span></div>{% if run.machine_model %}<div class="muted">{{ run.machine_model }}</div>{% endif %}{% if run.target_disk %}<div style="margin-top:8px">Disque sélectionné : <strong>{{ run.target_disk }}</strong>{% if run.target_disk_size_gb %} · {{ run.target_disk_size_gb }} Go{% endif %}</div>{% endif %}{% if run.current_step %}<div class="muted" style="margin-top:5px">{{ run.current_step }}{% if run.progress %} · {{ run.progress }} %{% endif %}</div>{% endif %}
+          {% if run.failure_summary %}<div class="errors">{{ run.failure_summary }}</div>{% endif %}
+          {% if run.status == "awaiting_confirmation" and can_manage %}<form method="post" action="{% url 'confirm_deployment_run' run.pk %}" style="margin-top:12px">{% csrf_token %}<label for="confirm-run-{{ run.pk }}">Le disque sélectionné sera effacé. Saisis <strong>AUTORISER {{ run.target_disk }}</strong> pour valider.</label><input id="confirm-run-{{ run.pk }}" name="confirmation" required autocomplete="off" style="width:100%;margin:7px 0;padding:10px;border:1px solid #34475f;border-radius:8px;background:#081423;color:white"><button class="button" type="submit">Confirmer ce poste</button></form>{% elif run.operator_confirmed_at %}<div class="status" style="margin-top:9px">Autorisé par le PC central à {{ run.operator_confirmed_at|date:"H:i" }}</div>{% endif %}
+        </div>{% endfor %}
+      </article>{% empty %}<div class="empty">Aucune demande enregistrée.</div>{% endfor %}
+    </section>
+    <footer class="foot">SystAudit · Le technicien confirmera chaque poste et son disque cible avant installation.</footer>
+  </main>
+</body>
+</html>

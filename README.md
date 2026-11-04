@@ -235,14 +235,15 @@ par e-mail; elle doit ouvrir le lien, se connecter avec l'adresse invitée et
 confirmer son adhésion. Les membres voient les appareils et rapports de l'équipe,
 mais pas la clé de licence et ne peuvent pas approuver une remédiation.
 
-En développement local, le backend e-mail affiche les messages dans la fenêtre
-PowerShell du serveur. Pour les livrer réellement, configurez dans `.env`
-`DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, puis
-`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`,
-`EMAIL_HOST_PASSWORD` et `DEFAULT_FROM_EMAIL` selon le fournisseur choisi.
-Gardez le mot de passe SMTP dans `.env` (jamais dans Git) et redémarrez Django
-après toute modification. La page après inscription indique aussi où trouver le
-lien quand le backend console est actif.
+En développement local, le backend console affiche les messages dans la fenêtre
+PowerShell du serveur. Pour tester avec Gmail, activez la validation en deux
+étapes sur le compte, créez un mot de passe d'application, puis renseignez dans
+`.env` `DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`,
+`EMAIL_HOST=smtp.gmail.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=true`,
+`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (mot de passe d'application) et
+`DEFAULT_FROM_EMAIL` avec la même adresse Gmail. Django 6.1 utilise maintenant
+`MAILERS` pour cette configuration. Gardez le mot de passe uniquement dans `.env`
+(jamais dans Git) et redémarrez le serveur après chaque modification.
 
 ### Lancement local
 

@@ -153,6 +153,138 @@ class WorkspaceInvitation(models.Model):
         return f"{self.email} — {self.workspace}"
 
 
+class WorkspaceActivity(models.Model):
+    ACTION_WORKSPACE_CREATED = "workspace_created"
+    ACTION_INVITATION_SENT = "invitation_sent"
+    ACTION_MEMBER_JOINED = "member_joined"
+    ACTION_MEMBER_REMOVED = "member_removed"
+    ACTION_COMPUTER_ADDED = "computer_added"
+    ACTION_COMPUTER_UPDATED = "computer_updated"
+    ACTION_REPAIR_RECORDED = "repair_recorded"
+    ACTION_AUDIT_RECEIVED = "audit_received"
+
+    ACTION_CHOICES = [
+        (ACTION_WORKSPACE_CREATED, "a créé l’espace d’équipe"),
+        (ACTION_INVITATION_SENT, "a envoyé une invitation à"),
+        (ACTION_MEMBER_JOINED, "a rejoint l’équipe"),
+        (ACTION_MEMBER_REMOVED, "a retiré le membre"),
+        (ACTION_COMPUTER_ADDED, "a ajouté le poste"),
+        (ACTION_COMPUTER_UPDATED, "a mis à jour le poste"),
+        (ACTION_REPAIR_RECORDED, "a enregistré une intervention sur"),
+        (ACTION_AUDIT_RECEIVED, "a reçu un audit pour"),
+    ]
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="activities",
+    )
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="workspace_activities",
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    target_label = models.CharField(max_length=254, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["workspace", "-created_at"], name="workspace_activity_recent_idx"),
+        ]
+
+
+class DeploymentProfile(models.Model):
+    """A reusable, workspace-scoped recipe for a future network deployment."""
+
+    LANGUAGE_CHOICES = [("fr-FR", "Français (France)"), ("en-US", "English (United States)")]
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="deployment_profiles")
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, null=True, blank=True, related_name="deployment_profiles"
+    )
+    name = models.CharField(max_length=100)
+    windows_iso = models.CharField(max_length=180)
+    image_index = models.PositiveSmallIntegerField(null=True, blank=True)
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="fr-FR")
+    applications = models.JSONField(default=list, blank=True)
+    office_product_id = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class DeploymentBatch(models.Model):
+    """A central request waiting for matching WinPE clients on the local network."""
+
+    STATUS_QUEUED = "queued"
+    STATUS_CHOICES = [(STATUS_QUEUED, "En attente des postes")]
+
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, null=True, blank=True, related_name="deployment_batches"
+    )
+    profile = models.ForeignKey(DeploymentProfile, on_delete=models.PROTECT, related_name="batches")
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="deployment_batches")
+    target_count = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_QUEUED)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.profile.name} — {self.target_count} poste(s)"
+
+
+class DeploymentRun(models.Model):
+    """One target computer in a batch, enrolled by a short-lived bootstrap token."""
+
+    STATUS_WAITING = "waiting"
+    STATUS_CONNECTED = "connected"
+    STATUS_CONFIRMATION = "awaiting_confirmation"
+    STATUS_INSTALLING = "installing"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_WAITING, "En attente du poste"),
+        (STATUS_CONNECTED, "Poste connecté"),
+        (STATUS_CONFIRMATION, "Confirmation requise"),
+        (STATUS_INSTALLING, "Installation en cours"),
+        (STATUS_COMPLETED, "Terminée"),
+        (STATUS_FAILED, "Échec"),
+    ]
+
+    batch = models.ForeignKey(DeploymentBatch, on_delete=models.CASCADE, related_name="runs")
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_WAITING)
+    machine_name = models.CharField(max_length=100, blank=True)
+    machine_model = models.CharField(max_length=160, blank=True)
+    target_disk = models.CharField(max_length=120, blank=True)
+    target_disk_size_gb = models.PositiveIntegerField(null=True, blank=True)
+    current_step = models.CharField(max_length=120, blank=True)
+    progress = models.PositiveSmallIntegerField(default=0)
+    operator_confirmed_at = models.DateTimeField(null=True, blank=True)
+    failure_summary = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    last_seen = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.batch} — {self.machine_name or 'poste en attente'}"
+
+
 class ManagedComputer(models.Model):
     """A company workstation tracked from preparation through retirement."""
 

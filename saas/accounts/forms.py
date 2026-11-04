@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import ManagedComputer, RepairIntervention
+from .models import DeploymentProfile, ManagedComputer, RepairIntervention
 
 
 class RegisterForm(UserCreationForm):
@@ -109,3 +109,58 @@ class RepairInterventionForm(forms.ModelForm):
             "details": forms.Textarea(attrs={"rows": 3}),
             "downtime_hours": forms.NumberInput(attrs={"min": "0", "step": "0.25"}),
         }
+
+
+class DeploymentProfileForm(forms.ModelForm):
+    APPLICATION_CHOICES = [
+        ("7zip", "7-Zip — archives"),
+        ("chrome", "Google Chrome — navigateur"),
+        ("firefox", "Mozilla Firefox — navigateur"),
+        ("vlc", "VLC — audio et vidéo"),
+        ("libreoffice", "LibreOffice — documents et tableurs"),
+        ("sumatrapdf", "SumatraPDF — fichiers PDF"),
+    ]
+
+    applications = forms.MultipleChoiceField(
+        choices=APPLICATION_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Logiciels à préparer",
+    )
+
+    class Meta:
+        model = DeploymentProfile
+        fields = ("name", "windows_iso", "image_index", "language", "applications", "office_product_id")
+        labels = {
+            "name": "Nom du profil",
+            "windows_iso": "Image Windows",
+            "image_index": "Index d’édition (facultatif)",
+            "language": "Langue",
+            "office_product_id": "Produit Office (facultatif)",
+        }
+        widgets = {"image_index": forms.NumberInput(attrs={"min": "1", "placeholder": "Ex. 6"})}
+
+    def __init__(self, *args, iso_names=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["windows_iso"] = forms.ChoiceField(
+            label="Image Windows",
+            choices=[("", "Choisir un ISO")] + [(name, name) for name in iso_names],
+            help_text="L’ISO doit être présent dans le dossier media du PC central.",
+        )
+        self.fields["office_product_id"].help_text = "Le déploiement respectera la licence Microsoft de l’entreprise."
+        if self.instance and self.instance.pk:
+            self.initial["applications"] = self.instance.applications
+
+    def clean_applications(self):
+        selected = self.cleaned_data["applications"]
+        allowed = {value for value, _label in self.APPLICATION_CHOICES}
+        if any(value not in allowed for value in selected):
+            raise forms.ValidationError("Un logiciel sélectionné n’est pas dans le catalogue autorisé.")
+        return selected
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        profile.applications = self.cleaned_data["applications"]
+        if commit:
+            profile.save()
+        return profile

@@ -48,7 +48,7 @@ class LicenseValidityTests(TestCase):
 
 class AuthenticationTests(TestCase):
     @override_settings(
-        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
     )
     def test_register_requires_email_confirmation(self):
         response = self.client.post(
@@ -138,7 +138,7 @@ class AuthenticationTests(TestCase):
         self.assertContains(response, "Cette adresse e-mail est déjà utilisée.")
 
     @override_settings(
-        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
     )
     def test_password_reset_email_can_reset_the_password(self):
         User.objects.create_user(

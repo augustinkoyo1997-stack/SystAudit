@@ -1,6 +1,28 @@
 from django.contrib import admin
 
-from .models import License, ManagedComputer, RepairIntervention, WorkspaceInvitation
+from .models import DeploymentBatch, DeploymentProfile, DeploymentRun, License, ManagedComputer, RepairIntervention, WorkspaceActivity, WorkspaceInvitation
+
+
+@admin.register(DeploymentProfile)
+class DeploymentProfileAdmin(admin.ModelAdmin):
+    list_display = ("name", "workspace", "owner", "windows_iso", "language", "updated_at")
+    list_filter = ("language", "workspace")
+    search_fields = ("name", "windows_iso", "owner__username", "workspace__name")
+
+
+@admin.register(DeploymentBatch)
+class DeploymentBatchAdmin(admin.ModelAdmin):
+    list_display = ("profile", "workspace", "requested_by", "target_count", "status", "created_at")
+    list_filter = ("status", "workspace", "created_at")
+    readonly_fields = ("profile", "workspace", "requested_by", "target_count", "status", "created_at")
+
+
+@admin.register(DeploymentRun)
+class DeploymentRunAdmin(admin.ModelAdmin):
+    list_display = ("batch", "machine_name", "target_disk", "status", "progress", "last_seen")
+    list_filter = ("status", "created_at")
+    search_fields = ("machine_name", "machine_model", "target_disk")
+    readonly_fields = ("token_hash", "created_at", "expires_at", "last_seen", "finished_at")
 
 
 @admin.register(License)
@@ -22,6 +44,14 @@ class LicenseAdmin(admin.ModelAdmin):
         "user__username",
         "user__email",
     )
+
+
+@admin.register(WorkspaceActivity)
+class WorkspaceActivityAdmin(admin.ModelAdmin):
+    list_display = ("workspace", "actor", "action", "target_label", "created_at")
+    list_filter = ("action", "workspace", "created_at")
+    search_fields = ("workspace__name", "actor__username", "target_label")
+    readonly_fields = ("workspace", "actor", "action", "target_label", "created_at")
 
 
 @admin.register(WorkspaceInvitation)

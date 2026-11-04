@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
 
-from accounts.models import License
+from accounts.models import License, ManagedComputer, Workspace, WorkspaceActivity
 from .models import AuditReport, LicensedDevice
 
 
@@ -319,6 +319,16 @@ def submit_audit_report(request):
         findings=findings,
         recommendations=recommendations,
     )
+    workspace = Workspace.objects.filter(license=device.license).first()
+    if workspace:
+        managed_computer = ManagedComputer.objects.filter(licensed_device=device).first()
+        target_label = managed_computer.asset_tag if managed_computer else f"Appareil ••••{device.device_id[-4:]}"
+        WorkspaceActivity.objects.create(
+            workspace=workspace,
+            actor=None,
+            action=WorkspaceActivity.ACTION_AUDIT_RECEIVED,
+            target_label=target_label,
+        )
 
     return Response(
         {

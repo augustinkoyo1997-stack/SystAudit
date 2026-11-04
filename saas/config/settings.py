@@ -169,21 +169,29 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-# Email settings are configurable per environment. The console backend keeps
-# local development self-contained; production can provide an SMTP service.
-EMAIL_BACKEND = os.environ.get(
+# Email (Django 6.1 MAILERS configuration)
+# The console backend keeps local development self-contained. Set the SMTP
+# backend and credentials through the repository-root .env to deliver messages.
+_email_backend = os.environ.get(
     "DJANGO_EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
 )
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+_email_options = {}
+if _email_backend == "django.core.mail.backends.smtp.EmailBackend":
+    _email_options = {
+        "host": os.environ.get("EMAIL_HOST", ""),
+        "port": int(os.environ.get("EMAIL_PORT", "587")),
+        "use_tls": os.environ.get("EMAIL_USE_TLS", "true").lower() == "true",
+        "username": os.environ.get("EMAIL_HOST_USER", ""),
+        "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+        "timeout": int(os.environ.get("EMAIL_TIMEOUT", "10")),
+    }
+MAILERS = {
+    "default": {
+        "BACKEND": _email_backend,
+        "OPTIONS": _email_options,
+    },
+}
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
     "SystAudit <no-reply@localhost>",
