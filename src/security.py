@@ -132,7 +132,7 @@ def get_disabled_users():
 def get_firewall_status():
     """Return the Windows Firewall status for all network profiles."""
     if platform.system() != "Windows":
-        return {}
+        return None
 
     try:
         result = subprocess.run(
@@ -151,8 +151,8 @@ def get_firewall_status():
             check=False,
         )
 
-        if not result.stdout.strip():
-            return {}
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
 
         data = json.loads(result.stdout)
 
@@ -166,13 +166,13 @@ def get_firewall_status():
         }
 
     except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
-        return {}
+        return None
 
 
 def get_antivirus_status():
     """Return the status of installed antivirus products."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -180,7 +180,7 @@ def get_antivirus_status():
                 "powershell",
                 "-NoProfile",
                 "-Command",
-                "Get-CimInstance -Namespace root/SecurityCenter2 "
+                "Get-CimInstance -ErrorAction Stop -Namespace root/SecurityCenter2 "
                 "-ClassName AntivirusProduct | "
                 "Select-Object displayName, productState | "
                 "ConvertTo-Json -Compress",
@@ -192,6 +192,8 @@ def get_antivirus_status():
             check=False,
         )
 
+        if result.returncode != 0:
+            return None
         if not result.stdout.strip():
             return []
 
@@ -210,7 +212,7 @@ def get_antivirus_status():
         ]
 
     except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
-        return []
+        return None
 
 
 def get_windows_updates():
@@ -339,7 +341,7 @@ def get_logged_in_users():
 def get_bitlocker_status():
     """Return BitLocker encryption and key protection status."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -361,7 +363,7 @@ def get_bitlocker_status():
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return None
 
         data = json.loads(result.stdout)
 
@@ -405,13 +407,13 @@ def get_bitlocker_status():
         ValueError,
         json.JSONDecodeError,
     ):
-        return []
+        return None
 
 
 def get_password_never_expires_users():
     """Return local users whose passwords are configured to never expire."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -431,7 +433,7 @@ def get_password_never_expires_users():
         )
 
         if result.returncode != 0:
-            return []
+            return None
 
         return [
             line.strip()
@@ -440,13 +442,13 @@ def get_password_never_expires_users():
         ]
 
     except (OSError, subprocess.SubprocessError):
-        return []
+        return None
 
 
 def get_uac_status():
     """Return whether Windows User Account Control (UAC) is enabled."""
     if platform.system() != "Windows":
-        return False
+        return None
 
     try:
         result = subprocess.run(
@@ -466,14 +468,16 @@ def get_uac_status():
         )
 
         if result.returncode != 0:
-            return False
+            return None
 
         value = result.stdout.strip()
 
+        if value not in {"0", "1"}:
+            return None
         return value == "1"
 
     except (OSError, subprocess.SubprocessError):
-        return False
+        return None
 
 
 def get_firewall_rules():
@@ -555,7 +559,7 @@ def get_firewall_rules():
 def get_suspicious_services():
     """Return Windows services with potentially suspicious characteristics."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -575,7 +579,7 @@ def get_suspicious_services():
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return None
 
         data = json.loads(result.stdout)
 
@@ -705,12 +709,12 @@ def get_suspicious_services():
         ValueError,
         json.JSONDecodeError,
     ):
-        return []
+        return None
 
 def get_suspicious_scheduled_tasks():
     """Return Windows scheduled tasks with potentially suspicious characteristics."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -730,7 +734,7 @@ def get_suspicious_scheduled_tasks():
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return None
 
         data = json.loads(result.stdout)
 
@@ -795,7 +799,7 @@ def get_suspicious_scheduled_tasks():
         ValueError,
         json.JSONDecodeError,
     ):
-        return []
+        return None
 
 
 
@@ -803,7 +807,7 @@ def get_suspicious_scheduled_tasks():
 def get_suspicious_processes():
     """Return Windows processes with potentially suspicious characteristics."""
     if platform.system() != "Windows":
-        return []
+        return None
 
     try:
         result = subprocess.run(
@@ -823,7 +827,7 @@ def get_suspicious_processes():
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return None
 
         data = json.loads(result.stdout)
 
@@ -932,13 +936,16 @@ def get_suspicious_processes():
         ValueError,
         json.JSONDecodeError,
     ):
-        return []
+        return None
 
 def get_suspicious_events():
     """
     Detect potentially suspicious Windows Security events.
     """
     suspicious = []
+
+    if platform.system() != "Windows":
+        return None
 
     try:
         command = """
@@ -964,7 +971,7 @@ def get_suspicious_events():
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return suspicious
+            return None if result.returncode != 0 else suspicious
 
         data = json.loads(result.stdout)
 
@@ -980,10 +987,10 @@ def get_suspicious_events():
             })
 
     except json.JSONDecodeError:
-        pass
+        return None
 
-    except Exception as e:
-        print(f"Erreur lors de l'analyse des événements : {e}")
+    except Exception:
+        return None
 
     return suspicious
 
