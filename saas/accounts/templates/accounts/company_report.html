@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rapport de sécurité — {{ organization_name }}</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#1b2938;font:14px/1.55 Arial,Helvetica,sans-serif}
+.toolbar{position:sticky;top:0;display:flex;justify-content:center;gap:10px;padding:12px;background:#0b1928}
+.button{display:inline-block;padding:10px 15px;border:1px solid #38516c;border-radius:8px;background:#13283e;color:#f3f8fc;font:700 12px Arial;text-decoration:none;cursor:pointer}.primary{background:#087fca;border-color:#087fca}
+.paper{width:min(900px,calc(100% - 30px));margin:24px auto;padding:48px 54px;background:#fff;box-shadow:0 12px 36px #17304b1c}
+.brand{font-size:12px;font-weight:800;letter-spacing:.12em;color:#087fca;text-transform:uppercase}
+h1{margin:12px 0 4px;font-size:28px;letter-spacing:-.03em}.sub{color:#617287;margin:0 0 22px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0 26px}
+.kpi{padding:14px;border-radius:10px;background:#f3f6f9}.kpi span{display:block;color:#64758a;font-size:10px;text-transform:uppercase;letter-spacing:.06em}.kpi strong{font-size:24px}
+.kpi.bad strong{color:#d94c55}.kpi.good strong{color:#1f9d6b}
+h2{margin:26px 0 10px;padding-bottom:7px;border-bottom:1px solid #e2e9f0;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 8px;border-bottom:1px solid #e6edf3;text-align:left}th{color:#64758a;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.score{font-weight:800}.s-low{color:#d94c55}.s-mid{color:#d28a18}.s-ok{color:#1f9d6b}
+.warn{margin:12px 0;padding:11px 13px;border-radius:8px;background:#fff6e5;color:#7a5410;font-size:12px}
+.foot{margin-top:28px;padding-top:12px;border-top:1px solid #e2e9f0;color:#78889b;font-size:9px}
+@media(max-width:620px){.paper{padding:26px 18px}.kpis{grid-template-columns:1fr 1fr}}
+@media print{@page{size:A4;margin:14mm}body{background:#fff}.toolbar{display:none}.paper{width:auto;margin:0;padding:0;box-shadow:none}tr{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="toolbar"><a class="button" href="{% url 'equipment' %}">← Retour au parc</a><button class="button primary" onclick="window.print()">Imprimer / Enregistrer en PDF</button></div>
+<main class="paper">
+<div class="brand">SystAudit · Rapport de sécurité du parc informatique</div>
+<h1>{{ organization_name }}</h1>
+<p class="sub">Synthèse au {% now "d/m/Y" %} · Document destiné à la direction</p>
+
+<section class="kpis">
+<div class="kpi"><span>Postes suivis</span><strong>{{ total_computers }}</strong></div>
+<div class="kpi {% if average_score is not None and average_score >= 80 %}good{% elif average_score is not None and average_score < 60 %}bad{% endif %}"><span>Score moyen</span><strong>{% if average_score is None %}—{% else %}{{ average_score }}/100{% endif %}</strong></div>
+<div class="kpi {% if at_risk_count %}bad{% else %}good{% endif %}"><span>Postes à risque</span><strong>{{ at_risk_count }}</strong></div>
+<div class="kpi {% if critical_total %}bad{% else %}good{% endif %}"><span>Problèmes critiques</span><strong>{{ critical_total }}</strong></div>
+</section>
+
+{% if unreliable_count %}<div class="warn">{{ unreliable_count }} audit(s) ont été exécutés avec une couverture incomplète (par exemple sans droits administrateur) : leur score est indicatif. Relancez-les en administrateur.</div>{% endif %}
+
+<h2>Postes à traiter en priorité</h2>
+{% if rows %}
+<table>
+<thead><tr><th>Poste</th><th>Utilisateur</th><th>Score</th><th>Critiques</th><th>Avertissements</th><th>Dernier audit</th></tr></thead>
+<tbody>
+{% for row in rows %}<tr><td><strong>{{ row.computer.name }}</strong><br><span style="color:#78889b">{{ row.computer.asset_tag }}</span></td><td>{{ row.computer.assigned_to|default:"—" }}</td><td class="score {% if row.report.score < 60 %}s-low{% elif row.report.score < 80 %}s-mid{% else %}s-ok{% endif %}">{{ row.report.score }}/100{% if not row.reliable %} *{% endif %}</td><td>{{ row.critical }}</td><td>{{ row.warnings }}</td><td>{{ row.report.created_at|date:"d/m/Y" }}</td></tr>{% endfor %}
+</tbody>
+</table>
+{% if unreliable_count %}<p style="font-size:10px;color:#78889b">* Audit à couverture incomplète.</p>{% endif %}
+{% else %}<p>Aucun audit reçu pour le moment.</p>{% endif %}
+
+{% if not_audited %}
+<h2>Postes jamais audités ({{ not_audited|length }})</h2>
+<table><thead><tr><th>Poste</th><th>Utilisateur</th><th>État</th></tr></thead><tbody>
+{% for computer in not_audited %}<tr><td><strong>{{ computer.name }}</strong><br><span style="color:#78889b">{{ computer.asset_tag }}</span></td><td>{{ computer.assigned_to|default:"—" }}</td><td>{{ computer.get_status_display }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
+<footer class="foot">SystAudit · {{ organization_name }} · Rapport généré le {% now "d/m/Y à H:i" %} · Confidentiel — diffusion limitée aux personnes autorisées. Les scores sont des indicateurs fondés sur des règles automatiques et doivent être interprétés par un responsable informatique.</footer>
+</main>
+</body>
+</html>

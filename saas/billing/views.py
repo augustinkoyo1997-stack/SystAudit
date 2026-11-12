@@ -149,3 +149,16 @@ def fedapay_webhook(request):
         payment.save(update_fields=["status", "updated_at"])
 
     return JsonResponse({"received": True})
+
+
+
+def pricing_view(request):
+    """Page publique des tarifs (FCFA)."""
+    try:
+        premium_price = int(getattr(settings, "FEDAPAY_PREMIUM_PRICE_XOF", 0))
+    except (TypeError, ValueError):
+        premium_price = 0
+    return render(request, "billing/pricing.html", {
+        "premium_price": premium_price,
+        "premium_max_devices": int(getattr(settings, "FEDAPAY_PREMIUM_MAX_DEVICES", 5)),
+    })

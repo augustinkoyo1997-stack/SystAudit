@@ -9,9 +9,27 @@ from licensing.models import LicensedDevice
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
 from django.utils import timezone
 
 from .models import Agent
+
+
+HEARTBEAT_LIMIT_PER_MINUTE = 30
+
+
+def _client_ip(request):
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def _rate_limited(request):
+    """Limite par IP, appliquée AVANT toute vérification de secret (hash coûteux)."""
+    key = f"agent-heartbeat:{_client_ip(request)}"
+    cache.add(key, 0, timeout=60)
+    try:
+        return cache.incr(key) > HEARTBEAT_LIMIT_PER_MINUTE
+    except ValueError:
+        return False
 
 
 @csrf_exempt
@@ -25,6 +43,18 @@ def agent_heartbeat(request):
         return JsonResponse(
             {"error": "Méthode non autorisée."},
             status=405,
+        )
+
+    if _rate_limited(request):
+        return JsonResponse(
+            {"error": "Trop de requêtes."},
+            status=429,
+        )
+
+    if len(request.body) > 4096:
+        return JsonResponse(
+            {"error": "Requête trop volumineuse."},
+            status=413,
         )
 
     try:

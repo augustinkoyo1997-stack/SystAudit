@@ -27,6 +27,19 @@ def _finding(title, severity, description, category):
         "title": title,
         "severity": severity,
         "description": description,
+        "status": "failed",
+    }
+
+
+def _unknown_finding(category, message):
+    return {
+        "risk": "unknown",
+        "severity": "UNKNOWN",
+        "status": "unknown",
+        "category": category,
+        "title": "Vérification indisponible",
+        "message": message,
+        "description": message,
     }
 
 
@@ -35,11 +48,9 @@ def _evaluate_firewall():
     firewall = get_firewall_status()
 
     if not firewall:
-        return _finding(
-            "Firewall non vérifiable",
-            "MEDIUM",
-            "Impossible de vérifier l'état du pare-feu Windows.",
+        return _unknown_finding(
             "firewall",
+            "Windows n’a pas fourni l’état des profils du pare-feu.",
         )
 
     disabled_profiles = [
@@ -61,6 +72,12 @@ def _evaluate_antivirus():
     """Evaluate antivirus protection."""
     antivirus = get_antivirus_status()
 
+    if antivirus is None:
+        return _unknown_finding(
+            "antivirus",
+            "Windows n’a pas permis de lire l’état de l’antivirus.",
+        )
+
     if not antivirus:
         return _finding(
             "Antivirus non détecté",
@@ -74,7 +91,14 @@ def _evaluate_antivirus():
     for item in antivirus:
         state = str(item.get("state", "")).lower()
 
-        if state in {"on", "enabled", "active", "running"}:
+        # "enabled" provient du décodage du bitmask productState ;
+        # les états textuels restent acceptés pour compatibilité.
+        if item.get("enabled") is True or state in {
+            "on",
+            "enabled",
+            "active",
+            "running",
+        }:
             active_antivirus.append(item)
 
     if not active_antivirus:
@@ -92,6 +116,12 @@ def _evaluate_uac():
     """Evaluate User Account Control."""
     uac_enabled = get_uac_status()
 
+    if uac_enabled is None:
+        return _unknown_finding(
+            "uac",
+            "Windows n’a pas permis de lire la configuration UAC.",
+        )
+
     if not uac_enabled:
         return _finding(
             "UAC désactivé",
@@ -108,11 +138,9 @@ def _evaluate_bitlocker():
     bitlocker = get_bitlocker_status()
 
     if not bitlocker:
-        return _finding(
-            "BitLocker non détecté",
-            "MEDIUM",
-            "Aucune information BitLocker exploitable n'a été détectée.",
+        return _unknown_finding(
             "bitlocker",
+            "Windows n’a pas fourni d’état de chiffrement exploitable pour les volumes.",
         )
     unprotected = []
 
@@ -127,7 +155,8 @@ def _evaluate_bitlocker():
             "Volumes non protégés par BitLocker",
             "MEDIUM",
             "Certains volumes ne semblent pas bénéficier "
-            "d'une protection BitLocker active.",
+            "d'une protection BitLocker active : "
+            f"{', '.join(str(v) for v in unprotected)}.",
             "bitlocker",
         )
 
@@ -137,6 +166,12 @@ def _evaluate_bitlocker():
 def _evaluate_password_expiration():
     """Evaluate accounts whose passwords never expire."""
     users = get_password_never_expires_users()
+
+    if users is None:
+        return _unknown_finding(
+            "password_policy",
+            "Windows n’a pas permis de lire la politique des comptes locaux.",
+        )
 
     if users:
         return _finding(
@@ -154,6 +189,12 @@ def _evaluate_suspicious_services():
     """Evaluate suspicious Windows services."""
     services = get_suspicious_services()
 
+    if services is None:
+        return _unknown_finding(
+            "suspicious_services",
+            "Windows n’a pas fourni la liste des services à examiner.",
+        )
+
     if services:
         return _finding(
             "Services suspects détectés",
@@ -169,6 +210,12 @@ def _evaluate_suspicious_services():
 def _evaluate_suspicious_tasks():
     """Evaluate suspicious scheduled tasks."""
     tasks = get_suspicious_scheduled_tasks()
+
+    if tasks is None:
+        return _unknown_finding(
+            "suspicious_tasks",
+            "Windows n’a pas fourni la liste des tâches planifiées à examiner.",
+        )
 
     if tasks:
         return _finding(
@@ -186,6 +233,12 @@ def _evaluate_suspicious_processes():
     """Evaluate suspicious processes."""
     processes = get_suspicious_processes()
 
+    if processes is None:
+        return _unknown_finding(
+            "suspicious_processes",
+            "Windows n’a pas fourni les processus nécessaires à cette vérification.",
+        )
+
     if processes:
         return _finding(
             "Processus suspects détectés",
@@ -201,6 +254,12 @@ def _evaluate_suspicious_processes():
 def _evaluate_suspicious_ports():
     """Evaluate sensitive listening ports."""
     ports = get_suspicious_ports()
+
+    if ports is None:
+        return _unknown_finding(
+            "suspicious_ports",
+            "Windows n’a pas permis de lire les ports en écoute.",
+        )
 
     if ports:
         port_list = ", ".join(str(item["port"]) for item in ports)
@@ -218,6 +277,12 @@ def _evaluate_suspicious_ports():
 def _evaluate_security_events():
     """Evaluate suspicious Windows security events."""
     events = get_suspicious_events()
+
+    if events is None:
+        return _unknown_finding(
+            "security_events",
+            "Windows n’a pas permis de lire les événements de sécurité.",
+        )
 
     if events:
         return _finding(
@@ -258,16 +323,18 @@ def build_summary(findings, total_checks):
         1 for finding in findings if finding.get("severity") in {"MEDIUM", "LOW"}
     )
 
-    passed = max(
-        0,
-        total_checks - len(findings),
-    )
+    unknown = sum(1 for finding in findings if finding.get("status") == "unknown")
+    failed = len(findings) - unknown
+    passed = max(0, total_checks - failed - unknown)
 
     return {
         "total_checks": total_checks,
         "passed": passed,
         "warnings": warnings,
         "critical": critical,
+        "failed": failed,
+        "unknown": unknown,
+        "coverage_percent": round((total_checks - unknown) * 100 / total_checks) if total_checks else 0,
     }
 
 
@@ -290,6 +357,8 @@ def build_recommendations(findings):
     }
 
     for finding in findings:
+        if finding.get("status", "failed") == "unknown":
+            continue
         title = finding.get("title")
 
         recommendation = recommendation_map.get(title)
@@ -310,25 +379,47 @@ def run_audit():
     network_info = get_network_info()
 
     checks = [
-        _evaluate_firewall,
-        _evaluate_antivirus,
-        _evaluate_uac,
-        _evaluate_bitlocker,
-        _evaluate_password_expiration,
-        _evaluate_suspicious_services,
-        _evaluate_suspicious_tasks,
-        _evaluate_suspicious_processes,
-        _evaluate_suspicious_ports,
-        _evaluate_security_events,
+        ("firewall", "Pare-feu", _evaluate_firewall),
+        ("antivirus", "Antivirus", _evaluate_antivirus),
+        ("uac", "Contrôle UAC", _evaluate_uac),
+        ("bitlocker", "Chiffrement BitLocker", _evaluate_bitlocker),
+        ("password_policy", "Politique des comptes", _evaluate_password_expiration),
+        ("suspicious_services", "Services Windows", _evaluate_suspicious_services),
+        ("suspicious_tasks", "Tâches planifiées", _evaluate_suspicious_tasks),
+        ("suspicious_processes", "Processus", _evaluate_suspicious_processes),
+        ("suspicious_ports", "Ports réseau", _evaluate_suspicious_ports),
+        ("security_events", "Événements de sécurité", _evaluate_security_events),
     ]
 
     findings = []
+    check_results = []
 
-    for check in checks:
-        finding = check()
+    for check_id, label, check in checks:
+        try:
+            finding = check()
+        except Exception:
+            finding = _unknown_finding(
+                check_id,
+                "Le contrôle a échoué pendant la collecte; son résultat est inconnu.",
+            )
 
         if finding:
+            finding["check_id"] = check_id
             findings.append(finding)
+            status = finding.get("status", "failed")
+            check_results.append({
+                "check_id": check_id,
+                "label": label,
+                "status": status,
+                "message": finding.get("message", ""),
+            })
+        else:
+            check_results.append({
+                "check_id": check_id,
+                "label": label,
+                "status": "passed",
+                "message": "Aucun problème détecté par ce contrôle.",
+            })
 
     total_checks = len(checks)
 
@@ -341,6 +432,9 @@ def run_audit():
         findings,
         total_checks,
     )
+    summary["check_results"] = check_results
+    # Un score calculé sur peu de contrôles réellement exécutés est trompeur.
+    summary["score_reliable"] = summary.get("coverage_percent", 0) >= 70
 
     recommendations = build_recommendations(
         findings,

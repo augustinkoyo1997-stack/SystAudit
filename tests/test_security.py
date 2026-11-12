@@ -1,3 +1,14 @@
+import sys
+
+import pytest
+
+# Ces tests appellent de vraies commandes Windows (PowerShell) : ils ne
+# peuvent pas reussir sur le serveur Linux de la CI.
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Appelle de vraies commandes Windows",
+)
+
 from src.security import (
     is_administrator,
     get_security_info,
@@ -68,6 +79,7 @@ def test_get_disabled_users():
         assert user.strip() != ""
 
 
+@windows_only
 def test_get_firewall_status():
     result = get_firewall_status()
 
@@ -78,6 +90,7 @@ def test_get_firewall_status():
         assert isinstance(enabled, bool)
 
 
+@windows_only
 def test_get_antivirus_status():
     result = get_antivirus_status()
 
@@ -119,6 +132,7 @@ def test_get_logged_in_users():
         assert user.strip() != ""
 
 
+@windows_only
 def test_get_bitlocker_status():
     result = get_bitlocker_status()
 
@@ -135,6 +149,7 @@ def test_get_bitlocker_status():
         assert isinstance(volume["encryption_percentage"], (int, float))
 
 
+@windows_only
 def test_get_password_never_expires_users():
     result = get_password_never_expires_users()
 
@@ -145,6 +160,7 @@ def test_get_password_never_expires_users():
         assert user.strip() != ""
 
 
+@windows_only
 def test_get_uac_status():
     result = get_uac_status()
 
@@ -171,6 +187,7 @@ def test_get_firewall_rules():
         assert isinstance(rule["profile"], str)
 
 
+@windows_only
 def test_get_suspicious_services():
     result = get_suspicious_services()
 
@@ -195,6 +212,7 @@ def test_get_suspicious_services():
 
 
 
+@windows_only
 def test_get_suspicious_scheduled_tasks():
     result = get_suspicious_scheduled_tasks()
 
@@ -216,6 +234,7 @@ def test_get_suspicious_scheduled_tasks():
         assert isinstance(task["reason"], str)
 
 
+@windows_only
 def test_get_suspicious_processes():
     result = get_suspicious_processes()
 
@@ -242,6 +261,7 @@ def test_get_suspicious_processes():
         assert process["reason"].strip() != ""
 
 
+@windows_only
 def test_get_suspicious_events():
     result = get_suspicious_events()
 

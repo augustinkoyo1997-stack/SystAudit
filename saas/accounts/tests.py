@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.core import mail
 from urllib.parse import urlsplit
 
-from accounts.models import License, Workspace, WorkspaceMembership
+from accounts.models import License, Workspace, WorkspaceInvitation, WorkspaceMembership
 from licensing.models import AuditReport, LicensedDevice
 from remediation.models import RemediationRequest
 
@@ -273,10 +273,9 @@ class WorkspaceTests(TestCase):
             reverse("add_workspace_member"), {"email": "MEMBER@example.com"}
         )
         self.assertRedirects(response, reverse("dashboard"))
-        self.assertEqual(
-            WorkspaceMembership.objects.get(user=self.member).workspace,
-            workspace,
-        )
+        # L'ajout cree une invitation, pas encore un membership
+        self.assertFalse(WorkspaceMembership.objects.filter(user=self.member).exists())
+        self.assertTrue(WorkspaceInvitation.objects.filter(workspace=workspace).exists())
 
     def test_member_dashboard_uses_only_the_shared_workspace_license(self):
         workspace = Workspace.objects.create(
@@ -379,3 +378,161 @@ class WorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 404)
         remediation.refresh_from_db()
         self.assertEqual(remediation.status, RemediationRequest.PROPOSED)
+
+
+
+# ---------------------------------------------------------------------------
+# Lot 2 : pièces changées et aide à la décision de remplacement
+# ---------------------------------------------------------------------------
+from datetime import timedelta as _timedelta
+
+from django.contrib.auth import get_user_model as _get_user_model
+from django.test import TestCase as _TestCase
+from django.urls import reverse as _reverse
+from django.utils import timezone as _timezone
+
+from accounts.models import ManagedComputer as _ManagedComputer
+from accounts.models import RepairIntervention as _RepairIntervention
+from accounts.models import ReplacedPart as _ReplacedPart
+
+
+class ReplacementAssessmentTests(_TestCase):
+    def setUp(self):
+        self.user = _get_user_model().objects.create_user("tech", "tech@example.com", "S3cure-Pass!")
+        self.computer = _ManagedComputer.objects.create(
+            created_by=self.user,
+            name="PC compta",
+            purchase_date=_timezone.localdate() - _timedelta(days=int(365.25 * 6)),
+            purchase_cost_xof=400000,
+            replacement_cost_xof=400000,
+            next_repair_estimate_xof=250000,
+        )
+
+    def _repair(self, title="Panne", days_ago=10, cost=20000, hours=2):
+        return _RepairIntervention.objects.create(
+            computer=self.computer,
+            title=title,
+            cost_xof=cost,
+            downtime_hours=hours,
+            performed_at=_timezone.localdate() - _timedelta(days=days_ago),
+        )
+
+    def test_old_computer_with_expensive_quote_suggests_replacement(self):
+        assessment = self.computer.replacement_assessment
+        self.assertEqual(assessment["level"], "replace")
+        self.assertTrue(assessment["reasons"])
+
+    def test_recent_cheap_repair_is_reasonable(self):
+        self.computer.purchase_date = _timezone.localdate() - _timedelta(days=200)
+        self.computer.next_repair_estimate_xof = 20000
+        self.computer.save()
+        self.assertEqual(self.computer.replacement_assessment["level"], "repair")
+
+    def test_recurring_part_is_reported(self):
+        for day in (30, 60):
+            intervention = self._repair(days_ago=day)
+            _ReplacedPart.objects.create(intervention=intervention, part_type=_ReplacedPart.PART_STORAGE)
+        self.assertEqual(self.computer.parts_replaced_summary, [("Disque (SSD/HDD)", 2)])
+        reasons = " ".join(self.computer.replacement_assessment["reasons"])
+        self.assertIn("Disque (SSD/HDD)", reasons)
+
+    def test_missing_replacement_price_is_flagged(self):
+        self.computer.replacement_cost_xof = 0
+        self.computer.save()
+        reasons = " ".join(self.computer.replacement_assessment["reasons"])
+        self.assertIn("non renseigné", reasons)
+
+
+class ReplacedPartViewTests(_TestCase):
+    def setUp(self):
+        User = _get_user_model()
+        self.user = User.objects.create_user("tech", "tech@example.com", "S3cure-Pass!")
+        self.other = User.objects.create_user("other", "other@example.com", "S3cure-Pass!")
+        self.computer = _ManagedComputer.objects.create(created_by=self.user, name="PC 1")
+        self.intervention = _RepairIntervention.objects.create(computer=self.computer, title="Disque HS")
+        self.url = _reverse("equipment_detail", kwargs={"asset_tag": self.computer.asset_tag})
+
+    def test_owner_can_add_part(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.url, {
+            "action": "part",
+            "intervention_id": self.intervention.pk,
+            "part_type": "storage",
+            "description": "SSD 256 Go",
+            "cost_xof": 35000,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.intervention.parts.count(), 1)
+
+    def test_other_user_cannot_add_part(self):
+        self.client.force_login(self.other)
+        response = self.client.post(self.url, {
+            "action": "part",
+            "intervention_id": self.intervention.pk,
+            "part_type": "ram",
+            "cost_xof": 1000,
+        })
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.intervention.parts.count(), 0)
+
+    def test_invalid_intervention_id_is_rejected(self):
+        self.client.force_login(self.user)
+        self.client.post(self.url, {"action": "part", "intervention_id": "abc", "part_type": "ram", "cost_xof": 0})
+        self.assertEqual(_ReplacedPart.objects.count(), 0)
+
+    def test_label_requires_login_and_renders(self):
+        label_url = _reverse("equipment_label", kwargs={"asset_tag": self.computer.asset_tag})
+        self.assertEqual(self.client.get(label_url).status_code, 302)
+        self.client.force_login(self.user)
+        response = self.client.get(label_url)
+        self.assertContains(response, self.computer.asset_tag)
+
+
+
+# ---------------------------------------------------------------------------
+# Lot 3 : rapport global de l'entreprise
+# ---------------------------------------------------------------------------
+from licensing.models import AuditReport as _CRAuditReport
+from licensing.models import LicensedDevice as _CRDevice
+
+
+class CompanyReportTests(_TestCase):
+    def setUp(self):
+        User = _get_user_model()
+        self.user = User.objects.create_user("boss", "boss@example.com", "S3cure-Pass!")
+        self.other = User.objects.create_user("stranger", "s@example.com", "S3cure-Pass!")
+        self.url = _reverse("company_report")
+
+    def _computer(self, name, score=None, critical=0, owner=None):
+        computer = _ManagedComputer.objects.create(created_by=owner or self.user, name=name)
+        if score is not None:
+            device = _CRDevice.objects.create(license=(owner or self.user).license, device_id=f"dev-{name}")
+            computer.licensed_device = device
+            computer.save()
+            _CRAuditReport.objects.create(device=device, score=score, summary={"critical": critical})
+        return computer
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_worst_scores_come_first_and_average_is_computed(self):
+        self._computer("PC-BON", score=90)
+        self._computer("PC-MAUVAIS", score=40, critical=2)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.context["average_score"], 65)
+        self.assertEqual(response.context["rows"][0]["computer"].name, "PC-MAUVAIS")
+        self.assertEqual(response.context["critical_total"], 2)
+
+    def test_never_audited_computers_are_listed_separately(self):
+        self._computer("PC-SANS-AUDIT")
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(len(response.context["not_audited"]), 1)
+        self.assertIsNone(response.context["average_score"])
+
+    def test_other_users_computers_are_not_shown(self):
+        self._computer("PC-SECRET", score=50, owner=self.other)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.context["total_computers"], 0)

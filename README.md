@@ -101,7 +101,6 @@ sysaudit/
 │   ├── main.py
 │   ├── network.py
 │   ├── security.py
-│   ├── security_analysis.py
 │   ├── security_recommendations.py
 │   ├── security_report.py
 │   └── system.py
@@ -110,7 +109,6 @@ sysaudit/
 │   ├── test_audit.py
 │   ├── test_network.py
 │   ├── test_security.py
-│   ├── test_security_analysis.py
 │   ├── test_security_recommendations.py
 │   ├── test_security_report.py
 │   ├── test_system.py
@@ -376,6 +374,34 @@ le rapport apparaît dans la fiche associée. Le bouton du rapport ouvre une pag
 imprimable : choisir **Enregistrer au format PDF** dans la fenêtre d'impression
 pour transmettre une copie au responsable. L'audit se lance sur le PC lui-même;
 le tableau de bord web ne commande pas encore son exécution à distance.
+
+### Configurer un nouveau PC selon les normes de l'entreprise
+
+Générer un script PowerShell (simulation par défaut, rien n'est modifié sans `-Apply`) :
+
+```
+.\.venv\Scripts\python.exe -m src.deployment baseline-script .\deployment\normes.ps1 --computer-name PC-COMPTA-01 --app 7zip.7zip --app Mozilla.Firefox
+```
+
+Sur le PC, dans PowerShell administrateur : `.\normes.ps1` (simulation) puis `.\normes.ps1 -Apply`. Le script applique le pare-feu, l'UAC, la désactivation de SMBv1, la politique de mots de passe, le fuseau horaire, le nom du poste et les logiciels (winget), puis écrit un journal dans `C:\ProgramData\SystAudit`. Il n'active jamais BitLocker et ne crée aucun mot de passe : la clé de récupération doit rester entre des mains humaines.
+
+### Traçabilité des réparations
+
+Chaque poste a un QR code (page **Étiquette QR** de la fiche, à imprimer et coller sur le PC). Le scan ouvre la fiche (connexion requise) : interventions, pièces changées (RAM, disque, batterie...), coûts, temps d'arrêt et une aide à la décision réparer/remplacer qui explique chaque point de son score (âge, pannes répétées, pièce qui revient, devis comparé au prix d'un poste neuf).
+
+### Alertes, rappels et rapport global
+
+- **Alerte e-mail** : à la réception d'un audit, le propriétaire de la licence est prévenu si le score baisse d'au moins 10 points ou si des problèmes critiques apparaissent. L'e-mail ne contient pas l'identifiant complet de l'appareil.
+- **Rappel mensuel** : `python saas/manage.py send_monthly_reminders` (option `--dry-run` pour simuler, `--days` pour changer le délai de 30 jours). À planifier une fois par mois avec le planificateur de tâches Windows, cron ou une tâche cloud.
+- **Rapport global** : page *Rapport entreprise* du parc (`/accounts/dashboard/equipment/report/`), imprimable en PDF : score moyen, postes à risque, problèmes critiques, postes jamais audités.
+- **Tarifs** : page publique `/billing/pricing/` (la racine du site y redirige les visiteurs non connectés).
+
+### Mise en production des paiements (liste de contrôle)
+
+1. Compte FedaPay marchand validé, test complet en `sandbox`, puis passage en `live`.
+2. `FEDAPAY_PREMIUM_PRICE_XOF` renseigné (le bouton de paiement reste caché tant que le prix vaut 0).
+3. Webhook HTTPS `/billing/webhook/fedapay/` configuré avec son secret de signature.
+4. Fournisseur SMTP réel pour les e-mails de confirmation et d'alerte.
 
 ## 🔒 Sécurité
 

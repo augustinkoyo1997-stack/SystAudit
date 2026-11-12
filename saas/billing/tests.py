@@ -112,4 +112,27 @@ class FedaPayCheckoutTests(TestCase):
         self.client.get(reverse("fedapay_return"), {"status": "approved", "id": "forged"})
         self.license.refresh_from_db()
         self.assertEqual(self.license.plan, License.PLAN_FREE)
-        self.assertIsNone(self.license.expires_at)\n
+        self.assertIsNone(self.license.expires_at)
+
+
+# ---------------------------------------------------------------------------
+# Lot 3 : page de tarifs
+# ---------------------------------------------------------------------------
+from django.test import TestCase as _PricingTC, override_settings as _override
+from django.urls import reverse as _rev
+
+
+class PricingPageTests(_PricingTC):
+    def test_pricing_is_public(self):
+        self.assertEqual(self.client.get(_rev("pricing")).status_code, 200)
+
+    @_override(FEDAPAY_PREMIUM_PRICE_XOF=25000)
+    def test_price_is_displayed_when_configured(self):
+        self.assertContains(self.client.get(_rev("pricing")), "25000")
+
+    @_override(FEDAPAY_PREMIUM_PRICE_XOF=0)
+    def test_unconfigured_price_shows_coming_soon(self):
+        self.assertContains(self.client.get(_rev("pricing")), "bientôt disponible", html=False)
+
+    def test_home_redirects_anonymous_visitors_to_pricing(self):
+        self.assertRedirects(self.client.get("/"), _rev("pricing"), fetch_redirect_response=False)

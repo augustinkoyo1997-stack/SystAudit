@@ -376,6 +376,84 @@ class ManagedComputer(models.Model):
             return "Historique coûteux : évaluer la fiabilité avant réparation"
         return "Réparation envisageable selon le diagnostic"
 
+    @property
+    def age_years(self):
+        if not self.purchase_date:
+            return None
+        return round((timezone.localdate() - self.purchase_date).days / 365.25, 1)
+
+    @property
+    def downtime_last_year_hours(self):
+        since = timezone.localdate() - timedelta(days=365)
+        return float(
+            sum(item.downtime_hours for item in self.interventions.filter(performed_at__gte=since))
+        )
+
+    @property
+    def parts_replaced_summary(self):
+        """[(libellé de la pièce, nombre de remplacements)] du plus fréquent au moins fréquent."""
+        counts = {}
+        for part in ReplacedPart.objects.filter(intervention__computer=self):
+            label = part.get_part_type_display()
+            counts[label] = counts.get(label, 0) + 1
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+    @property
+    def replacement_assessment(self):
+        """Aide à la décision transparente : chaque point de score est expliqué.
+
+        Les seuils (âge, nombre de pannes, ratios de coût) sont des repères
+        indicatifs, à ajuster par l'entreprise ; la décision reste humaine.
+        """
+        reasons = []
+        score = 0
+
+        age = self.age_years
+        if age is not None:
+            if age >= 5:
+                score += 2
+                reasons.append(f"Poste ancien : {age} ans")
+            elif age >= 4:
+                score += 1
+                reasons.append(f"Poste vieillissant : {age} ans")
+
+        if self.repair_count_last_year >= 3:
+            score += 2
+            reasons.append(f"{self.repair_count_last_year} interventions sur les 12 derniers mois")
+
+        recurring = [(label, n) for label, n in self.parts_replaced_summary if n >= 2]
+        if recurring:
+            score += 2
+            reasons.append(
+                "Pièce remplacée plusieurs fois : "
+                + ", ".join(f"{label} (×{n})" for label, n in recurring)
+            )
+
+        if self.replacement_cost_xof:
+            if self.repair_total_xof >= self.replacement_cost_xof * 0.6:
+                score += 2
+                reasons.append("Les réparations cumulées dépassent 60 % du prix d'un poste neuf équivalent")
+            if self.next_repair_estimate_xof >= self.replacement_cost_xof * 0.5:
+                score += 3
+                reasons.append("Le devis atteint 50 % ou plus du prix d'un poste neuf équivalent")
+            elif self.next_repair_estimate_xof >= self.replacement_cost_xof * 0.25:
+                score += 1
+                reasons.append("Le devis représente 25 % ou plus du prix d'un poste neuf")
+        else:
+            reasons.append("Prix d'un poste équivalent non renseigné : comparaison incomplète")
+
+        if self.downtime_last_year_hours >= 40:
+            score += 1
+            reasons.append(f"{self.downtime_last_year_hours:g} h d'immobilisation sur 12 mois")
+
+        if score >= 5:
+            level, label = "replace", "Remplacement à envisager sérieusement"
+        elif score >= 3:
+            level, label = "review", "À réévaluer avant toute nouvelle réparation"
+        else:
+            level, label = "repair", "Réparation raisonnable selon l'historique"
+        return {"level": level, "label": label, "score": score, "reasons": reasons}
+
 
 class RepairIntervention(models.Model):
     computer = models.ForeignKey(
@@ -397,3 +475,47 @@ class RepairIntervention(models.Model):
 
     def __str__(self):
         return f"{self.computer.asset_tag} — {self.title}"
+
+
+class ReplacedPart(models.Model):
+    """Une pièce changée lors d'une intervention (traçabilité pièce par pièce)."""
+
+    PART_RAM = "ram"
+    PART_STORAGE = "storage"
+    PART_BATTERY = "battery"
+    PART_SCREEN = "screen"
+    PART_KEYBOARD = "keyboard"
+    PART_MOTHERBOARD = "motherboard"
+    PART_POWER = "power"
+    PART_CHARGER = "charger"
+    PART_FAN = "fan"
+    PART_OTHER = "other"
+    PART_CHOICES = [
+        (PART_RAM, "Mémoire RAM"),
+        (PART_STORAGE, "Disque (SSD/HDD)"),
+        (PART_BATTERY, "Batterie"),
+        (PART_SCREEN, "Écran"),
+        (PART_KEYBOARD, "Clavier / pavé tactile"),
+        (PART_MOTHERBOARD, "Carte mère"),
+        (PART_POWER, "Alimentation"),
+        (PART_CHARGER, "Chargeur"),
+        (PART_FAN, "Ventilateur / refroidissement"),
+        (PART_OTHER, "Autre pièce"),
+    ]
+
+    intervention = models.ForeignKey(
+        RepairIntervention, on_delete=models.CASCADE, related_name="parts"
+    )
+    part_type = models.CharField(max_length=16, choices=PART_CHOICES)
+    description = models.CharField(max_length=160, blank=True)
+    cost_xof = models.PositiveIntegerField(
+        default=0, help_text="Montant de la pièce, déjà inclus dans le coût de l'intervention."
+    )
+    warranty_until = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_part_type_display()} — {self.intervention}"
