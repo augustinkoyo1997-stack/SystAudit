@@ -29,7 +29,13 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from remediation.models import RemediationRequest
 from licensing.models import AuditReport, LicensedDevice
 
-from .forms import DeploymentProfileForm, ManagedComputerForm, RegisterForm, RepairInterventionForm
+from .forms import (
+    DeploymentProfileForm,
+    ManagedComputerForm,
+    RegisterForm,
+    RepairInterventionForm,
+    ReplacedPartForm,
+)
 from .models import (
     DeploymentBatch,
     DeploymentProfile,
@@ -469,6 +475,30 @@ def equipment_view(request):
     })
 
 
+def _qr_code_data(request, computer):
+    """QR (SVG en base64) qui ouvre la fiche du poste ; vide si qrcode est absent."""
+    try:
+        import qrcode
+        import qrcode.image.svg
+    except ImportError:
+        return ""
+    qr_image = qrcode.make(
+        request.build_absolute_uri(reverse("equipment_detail", kwargs={"asset_tag": computer.asset_tag})),
+        image_factory=qrcode.image.svg.SvgPathImage,
+    )
+    return base64.b64encode(qr_image.to_string(encoding="unicode").encode("utf-8")).decode("ascii")
+
+
+@login_required
+def equipment_label_view(request, asset_tag):
+    """Étiquette imprimable (QR + code) à coller sur le PC."""
+    computer = get_object_or_404(_managed_computers_for_user(request.user), asset_tag=asset_tag)
+    return render(request, "accounts/equipment_label.html", {
+        "computer": computer,
+        "qr_code_data": _qr_code_data(request, computer),
+    })
+
+
 @login_required
 def equipment_detail_view(request, asset_tag):
     computer = get_object_or_404(
@@ -494,6 +524,29 @@ def equipment_detail_view(request, asset_tag):
                 computer.save(update_fields=["status", "updated_at"])
                 messages.success(request, "L’intervention a été ajoutée à l’historique du poste.")
                 return redirect("equipment_detail", asset_tag=computer.asset_tag)
+        elif action == "part":
+            part_form = ReplacedPartForm(request.POST)
+            try:
+                intervention_id = int(request.POST.get("intervention_id", ""))
+            except (TypeError, ValueError):
+                intervention_id = None
+            intervention = computer.interventions.filter(pk=intervention_id).first() if intervention_id else None
+            if intervention is None:
+                messages.error(request, "Intervention introuvable pour ce poste.")
+            elif part_form.is_valid():
+                part = part_form.save(commit=False)
+                part.intervention = intervention
+                part.save()
+                _record_workspace_activity(
+                    computer.workspace,
+                    request.user,
+                    WorkspaceActivity.ACTION_REPAIR_RECORDED,
+                    f"{computer.asset_tag} — {part.get_part_type_display()}",
+                )
+                messages.success(request, "La pièce a été ajoutée à l’intervention.")
+                return redirect("equipment_detail", asset_tag=computer.asset_tag)
+            else:
+                messages.error(request, "Vérifiez les informations de la pièce.")
         elif action == "preparation":
             fields = ("os_installed", "drivers_installed", "updates_installed", "apps_installed", "security_checked")
             for field in fields:
@@ -561,7 +614,7 @@ def equipment_detail_view(request, asset_tag):
     else:
         form = RepairInterventionForm()
 
-    interventions = computer.interventions.select_related("created_by")
+    interventions = computer.interventions.select_related("created_by").prefetch_related("parts")
     audit_reports = (
         AuditReport.objects.filter(device=computer.licensed_device)
         if computer.licensed_device_id else AuditReport.objects.none()
@@ -570,21 +623,14 @@ def equipment_detail_view(request, asset_tag):
     available_devices = license_obj.devices.filter(
         Q(managed_computer__isnull=True) | Q(pk=computer.licensed_device_id)
     ).order_by("device_id")
-    try:
-        import qrcode
-        import qrcode.image.svg
-
-        qr_image = qrcode.make(
-            request.build_absolute_uri(reverse("equipment_detail", kwargs={"asset_tag": computer.asset_tag})),
-            image_factory=qrcode.image.svg.SvgPathImage,
-        )
-        qr_code_data = base64.b64encode(qr_image.to_string(encoding="unicode").encode("utf-8")).decode("ascii")
-    except ImportError:
-        qr_code_data = ""
+    qr_code_data = _qr_code_data(request, computer)
     return render(request, "accounts/equipment_detail.html", {
         "computer": computer,
         "status_choices": ManagedComputer.STATUS_CHOICES,
         "qr_code_data": qr_code_data,
+        "assessment": computer.replacement_assessment,
+        "parts_summary": computer.parts_replaced_summary,
+        "part_form": ReplacedPartForm(),
         "interventions": interventions,
         "audit_reports": audit_reports,
         "available_devices": available_devices,
@@ -631,6 +677,56 @@ def _report_findings(report):
             "recommendation": recommendation or "Examiner ce constat et valider la correction avec le responsable informatique.",
         })
     return result
+
+
+def _safe_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+@login_required
+def company_report_view(request):
+    """Rapport de synthèse de tout le parc, imprimable pour la direction."""
+    computers = (
+        _managed_computers_for_user(request.user)
+        .exclude(status=ManagedComputer.STATUS_RETIRED)
+        .select_related("licensed_device", "workspace")
+    )
+    audited, not_audited = [], []
+    for computer in computers:
+        report = None
+        if computer.licensed_device_id:
+            report = AuditReport.objects.filter(device=computer.licensed_device).first()
+        if report is None:
+            not_audited.append(computer)
+            continue
+        summary = report.summary if isinstance(report.summary, dict) else {}
+        audited.append({
+            "computer": computer,
+            "report": report,
+            "critical": _safe_int(summary.get("critical")),
+            "warnings": _safe_int(summary.get("warnings")),
+            "reliable": summary.get("score_reliable") is not False,
+        })
+    # Les postes au plus mauvais score en premier : ce sont les priorités.
+    audited.sort(key=lambda row: (row["report"].score, row["computer"].asset_tag))
+    average = round(sum(row["report"].score for row in audited) / len(audited)) if audited else None
+    membership = getattr(request.user, "workspace_membership", None)
+    organization_name = (
+        membership.workspace.name if membership else request.user.get_full_name() or request.user.username
+    )
+    return render(request, "accounts/company_report.html", {
+        "organization_name": organization_name,
+        "rows": audited,
+        "not_audited": not_audited,
+        "average_score": average,
+        "total_computers": len(audited) + len(not_audited),
+        "critical_total": sum(row["critical"] for row in audited),
+        "at_risk_count": sum(1 for row in audited if row["report"].score < 60 or row["critical"] > 0),
+        "unreliable_count": sum(1 for row in audited if not row["reliable"]),
+    })
 
 
 @login_required

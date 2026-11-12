@@ -17,6 +17,8 @@ from .views import (
     accept_workspace_invitation_view,
     equipment_view,
     equipment_detail_view,
+    equipment_label_view,
+    company_report_view,
     equipment_audit_report_view,
 )
 
@@ -64,7 +66,9 @@ urlpatterns = [
     path("dashboard/deployment/center/", deployment_center_view, name="deployment_center"),
     path("dashboard/deployment/run/<int:run_id>/confirm/", confirm_deployment_run_view, name="confirm_deployment_run"),
     path("dashboard/equipment/", equipment_view, name="equipment"),
+    path("dashboard/equipment/report/", company_report_view, name="company_report"),
     path("dashboard/equipment/<str:asset_tag>/", equipment_detail_view, name="equipment_detail"),
+    path("dashboard/equipment/<str:asset_tag>/label/", equipment_label_view, name="equipment_label"),
     path("dashboard/equipment/<str:asset_tag>/audit/<int:report_id>/", equipment_audit_report_view, name="equipment_audit_report"),
     path("dashboard/workspace/create/", create_workspace_view, name="create_workspace"),
     path("dashboard/workspace/members/add/", add_workspace_member_view, name="add_workspace_member"),

@@ -2,13 +2,30 @@ import json
 import os
 import uuid
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-DEFAULT_API_BASE_URL = os.environ.get(
-    "SYSAUDIT_API_URL",
-    "http://127.0.0.1:8000",
-).rstrip("/")
+def _validated_base_url(url):
+    """Refuse l'envoi de clés de licence et de rapports en clair."""
+    parsed = urlparse(url)
+    local_hosts = {"127.0.0.1", "localhost", "::1"}
+
+    if parsed.scheme == "https":
+        return url.rstrip("/")
+
+    if parsed.scheme == "http" and (parsed.hostname or "") in local_hosts:
+        return url.rstrip("/")
+
+    raise ValueError(
+        "SYSAUDIT_API_URL doit utiliser HTTPS (HTTP n'est accepté que "
+        "pour localhost)."
+    )
+
+
+DEFAULT_API_BASE_URL = _validated_base_url(
+    os.environ.get("SYSAUDIT_API_URL", "http://127.0.0.1:8000")
+)
 
 DEFAULT_API_URL = (
     f"{DEFAULT_API_BASE_URL}/api/license/validate/"

@@ -91,7 +91,14 @@ def _evaluate_antivirus():
     for item in antivirus:
         state = str(item.get("state", "")).lower()
 
-        if state in {"on", "enabled", "active", "running"}:
+        # "enabled" provient du décodage du bitmask productState ;
+        # les états textuels restent acceptés pour compatibilité.
+        if item.get("enabled") is True or state in {
+            "on",
+            "enabled",
+            "active",
+            "running",
+        }:
             active_antivirus.append(item)
 
     if not active_antivirus:
@@ -148,7 +155,8 @@ def _evaluate_bitlocker():
             "Volumes non protégés par BitLocker",
             "MEDIUM",
             "Certains volumes ne semblent pas bénéficier "
-            "d'une protection BitLocker active.",
+            "d'une protection BitLocker active : "
+            f"{', '.join(str(v) for v in unprotected)}.",
             "bitlocker",
         )
 
@@ -425,6 +433,8 @@ def run_audit():
         total_checks,
     )
     summary["check_results"] = check_results
+    # Un score calculé sur peu de contrôles réellement exécutés est trompeur.
+    summary["score_reliable"] = summary.get("coverage_percent", 0) >= 70
 
     recommendations = build_recommendations(
         findings,

@@ -1,10 +1,18 @@
+import json
+
 from django.core.exceptions import ValidationError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
 
 from accounts.models import License, ManagedComputer, Workspace, WorkspaceActivity
+from .alerts import notify_audit_alerts
 from .models import AuditReport, LicensedDevice
+
+
+MAX_FINDINGS = 500
+MAX_RECOMMENDATIONS = 200
+MAX_REPORT_BYTES = 512 * 1024
 
 
 def _get_license_error(license_obj):
@@ -266,6 +274,20 @@ def submit_audit_report(request):
             status=400,
         )
 
+    if (
+        len(findings) > MAX_FINDINGS
+        or len(recommendations) > MAX_RECOMMENDATIONS
+        or len(json.dumps([summary, findings, recommendations]))
+        > MAX_REPORT_BYTES
+    ):
+        return Response(
+            {
+                "saved": False,
+                "error": "Audit report is too large.",
+            },
+            status=413,
+        )
+
     try:
         license_obj = License.objects.get(key=key)
     except License.DoesNotExist:
@@ -319,6 +341,7 @@ def submit_audit_report(request):
         findings=findings,
         recommendations=recommendations,
     )
+    notify_audit_alerts(report)
     workspace = Workspace.objects.filter(license=device.license).first()
     if workspace:
         managed_computer = ManagedComputer.objects.filter(licensed_device=device).first()

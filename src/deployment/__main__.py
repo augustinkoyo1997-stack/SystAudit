@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from .baseline import BaselineError, BaselinePolicy, write_baseline_script
 from .office import generate_office_configuration, run_office_deployment
 from .windows_media import (
     DeploymentError,
@@ -58,8 +59,34 @@ def main(argv: list[str] | None = None) -> int:
     office_install.add_argument("setup_exe", type=Path)
     office_install.add_argument("configuration", type=Path)
 
+    baseline = commands.add_parser(
+        "baseline-script",
+        help="Générer le script PowerShell des normes de l'entreprise (simulation par défaut).",
+    )
+    baseline.add_argument("output", type=Path)
+    baseline.add_argument("--computer-name", default="")
+    baseline.add_argument("--timezone", default="W. Central Africa Standard Time")
+    baseline.add_argument("--app", action="append", default=[], help="Identifiant winget, répétable.")
+    baseline.add_argument("--min-password-length", type=int, default=10)
+    baseline.add_argument("--lockout-threshold", type=int, default=5)
+
     args = parser.parse_args(argv)
     try:
+        if args.command == "baseline-script":
+            path = write_baseline_script(
+                args.output,
+                BaselinePolicy(
+                    computer_name=args.computer_name,
+                    timezone_id=args.timezone,
+                    applications=tuple(args.app),
+                    min_password_length=args.min_password_length,
+                    lockout_threshold=args.lockout_threshold,
+                ),
+            )
+            print(f"Script créé : {path}")
+            print("Il s'exécute en SIMULATION tant que -Apply n'est pas ajouté.")
+            return 0
+
         if args.command == "inspect-windows":
             details, digest = inspect_windows_iso(args.iso)
             print(details)
@@ -110,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return run_office_deployment(args.setup_exe, args.configuration, mode="configure")
 
-    except DeploymentError as exc:
+    except (DeploymentError, BaselineError) as exc:
         print(f"Erreur : {exc}", file=sys.stderr)
         return 2
     return 2

@@ -10,3 +10,4 @@ venv/
 sysaudit_report.json
 saas/db.sqlite3
 /media/
+sauvegarde_*.sql

@@ -2,7 +2,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
 
-from django.db import close_old_connections
+from unittest import skipIf
+
+from django.db import close_old_connections, connection
 from django.core.cache import cache
 from django.contrib.auth.models import AnonymousUser
 from django.test import SimpleTestCase, TransactionTestCase
@@ -214,6 +216,10 @@ class LicenseActivationTests(APITestCase):
         )
 
 
+@skipIf(
+    connection.vendor == "sqlite",
+    "Test de concurrence reelle : a lancer sur PostgreSQL.",
+)
 class LicenseActivationConcurrencyTests(TransactionTestCase):
     reset_sequences = True
 
@@ -526,3 +532,80 @@ class AuditReportAPITests(APITestCase):
             response.data["error"],
             "Device ID is required.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Lot 3 : alertes e-mail et rappels mensuels
+# ---------------------------------------------------------------------------
+from datetime import timedelta as _td
+from io import StringIO as _StringIO
+
+from django.contrib.auth import get_user_model as _gum
+from django.core import mail as _mail
+from django.core.management import call_command as _call_command
+from django.test import TestCase as _TC
+from django.utils import timezone as _tz
+
+from licensing.alerts import notify_audit_alerts as _notify
+from licensing.models import AuditReport as _AuditReport
+from licensing.models import LicensedDevice as _LicensedDevice
+
+
+class AuditAlertTests(_TC):
+    def setUp(self):
+        self.user = _gum().objects.create_user("owner", "owner@example.com", "S3cure-Pass!")
+        self.device = _LicensedDevice.objects.create(license=self.user.license, device_id="1234567890")
+
+    def _report(self, score, critical=0):
+        return _AuditReport.objects.create(
+            device=self.device, score=score, summary={"critical": critical}, findings=[], recommendations=[]
+        )
+
+    def test_first_report_without_critical_sends_nothing(self):
+        self.assertFalse(_notify(self._report(90)))
+        self.assertEqual(len(_mail.outbox), 0)
+
+    def test_score_drop_sends_email(self):
+        self._report(90)
+        self.assertTrue(_notify(self._report(70)))
+        self.assertEqual(len(_mail.outbox), 1)
+        self.assertIn("owner@example.com", _mail.outbox[0].to)
+
+    def test_small_drop_sends_nothing(self):
+        self._report(90)
+        self.assertFalse(_notify(self._report(85)))
+
+    def test_new_critical_problem_sends_email(self):
+        self._report(80)
+        self.assertTrue(_notify(self._report(78, critical=2)))
+
+    def test_email_does_not_reveal_full_device_id(self):
+        self._report(90)
+        _notify(self._report(60))
+        self.assertNotIn("1234567890", _mail.outbox[0].body)
+        self.assertIn("7890", _mail.outbox[0].body)
+
+
+class MonthlyReminderTests(_TC):
+    def setUp(self):
+        self.user = _gum().objects.create_user("owner", "owner@example.com", "S3cure-Pass!")
+        self.device = _LicensedDevice.objects.create(license=self.user.license, device_id="abcdef0001")
+
+    def test_never_audited_device_triggers_reminder(self):
+        _call_command("send_monthly_reminders", stdout=_StringIO())
+        self.assertEqual(len(_mail.outbox), 1)
+
+    def test_recent_audit_triggers_nothing(self):
+        _AuditReport.objects.create(device=self.device, score=90)
+        _call_command("send_monthly_reminders", stdout=_StringIO())
+        self.assertEqual(len(_mail.outbox), 0)
+
+    def test_old_audit_triggers_reminder(self):
+        report = _AuditReport.objects.create(device=self.device, score=90)
+        _AuditReport.objects.filter(pk=report.pk).update(created_at=_tz.now() - _td(days=45))
+        _call_command("send_monthly_reminders", stdout=_StringIO())
+        self.assertEqual(len(_mail.outbox), 1)
+
+    def test_dry_run_sends_nothing(self):
+        _call_command("send_monthly_reminders", "--dry-run", stdout=_StringIO())
+        self.assertEqual(len(_mail.outbox), 0)

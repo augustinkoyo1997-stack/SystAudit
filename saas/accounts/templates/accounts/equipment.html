@@ -9,7 +9,7 @@
     </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="brand" href="{% url 'dashboard' %}">◈ SystAudit</a><nav class="nav"><a href="{% url 'deployment' %}">Préparer un poste</a><a href="{% url 'dashboard' %}">Tableau de bord</a></nav></div></header>
+<header class="top"><div class="wrap"><a class="brand" href="{% url 'dashboard' %}">◈ SystAudit</a><nav class="nav"><a href="{% url 'company_report' %}">Rapport entreprise</a><a href="{% url 'deployment' %}">Préparer un poste</a><a href="{% url 'dashboard' %}">Tableau de bord</a></nav></div></header>
 <main class="wrap main">
     {% if messages %}{% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}{% endif %}
     <div class="head"><div><div class="eyebrow">Gestion du matériel</div><h1>Parc informatique</h1><p class="sub">Préparez les nouveaux postes, conservez l’historique des réparations et repérez les équipements à réévaluer.</p></div><a class="btn primary" href="#ajouter">+ Ajouter un poste</a></div>

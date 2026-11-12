@@ -26,9 +26,16 @@ def print_security_report(report):
     print("        SYSAUDIT REPORT")
     print("=" * 40)
 
+    summary = report["summary"]
+
     print(f"\nSecurity Score : {report['score']}/100")
 
-    summary = report["summary"]
+    if summary.get("score_reliable") is False:
+        print(
+            "ATTENTION : moins de 70 % des contrôles ont pu être exécutés "
+            f"(couverture {summary.get('coverage_percent', 0)} %). "
+            "Relancez l'audit en administrateur."
+        )
 
     print("\nFindings")
     print("--------")
@@ -46,7 +53,7 @@ def print_security_report(report):
         for recommendation in report["recommendations"]:
             print(f"- {recommendation}")
 
-            print("\n" + "=" * 40)
+    print("\n" + "=" * 40)
 
 
 def run_protected_audit(license_key, output_file="sysaudit_report.json"):

@@ -1,7 +1,23 @@
 import ctypes
 import json
+import logging
 import platform
 import subprocess
+
+logger = logging.getLogger(__name__)
+
+# Aucune commande système ne doit pouvoir bloquer l'audit indéfiniment.
+DEFAULT_COMMAND_TIMEOUT = 60
+
+
+def _run(*args, **kwargs):
+    """subprocess.run avec un délai maximal par défaut.
+
+    subprocess.TimeoutExpired hérite de SubprocessError : les fonctions
+    d'audit existantes la traitent déjà comme une vérification indisponible.
+    """
+    kwargs.setdefault("timeout", DEFAULT_COMMAND_TIMEOUT)
+    return subprocess.run(*args, **kwargs)
 
 
 def is_administrator():
@@ -32,7 +48,7 @@ def get_local_administrators():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -66,7 +82,7 @@ def get_local_users():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -100,7 +116,7 @@ def get_disabled_users():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -135,7 +151,7 @@ def get_firewall_status():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -169,13 +185,31 @@ def get_firewall_status():
         return None
 
 
+def _decode_antivirus_state(product_state):
+    """Décode le champ productState de Windows Security Center.
+
+    Le bit 0x1000 indique que la protection temps réel est active et le
+    bit 0x10 que les signatures sont périmées (convention documentée par la
+    communauté ; Microsoft ne publie pas de spécification officielle).
+    """
+    try:
+        value = int(product_state)
+    except (TypeError, ValueError):
+        return {"enabled": None, "up_to_date": None}
+
+    return {
+        "enabled": bool(value & 0x1000),
+        "up_to_date": not bool(value & 0x10),
+    }
+
+
 def get_antivirus_status():
     """Return the status of installed antivirus products."""
     if platform.system() != "Windows":
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -206,6 +240,7 @@ def get_antivirus_status():
             {
                 "name": antivirus.get("displayName", ""),
                 "state": antivirus.get("productState"),
+                **_decode_antivirus_state(antivirus.get("productState")),
             }
             for antivirus in data
             if antivirus.get("displayName")
@@ -221,7 +256,7 @@ def get_windows_updates():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -266,7 +301,7 @@ def get_password_policy():
         return {}
 
     try:
-        result = subprocess.run(
+        result = _run(
             ["net", "accounts"],
             capture_output=True,
             text=True,
@@ -299,7 +334,7 @@ def get_logged_in_users():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             ["quser"],
             capture_output=True,
             text=True,
@@ -344,7 +379,7 @@ def get_bitlocker_status():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -416,7 +451,7 @@ def get_password_never_expires_users():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -451,7 +486,7 @@ def get_uac_status():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -486,7 +521,7 @@ def get_firewall_rules():
         return []
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -562,7 +597,7 @@ def get_suspicious_services():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -599,11 +634,6 @@ def get_suspicious_services():
 
             path_lower = path.lower()
             stripped_path = path.strip()
-
-            # ---------------------------------------------------------
-            # 1. Service configured as automatic but currently stopped
-            # ---------------------------------------------------------
-
 
             # ---------------------------------------------------------
             # 2. Missing executable path
@@ -701,8 +731,6 @@ def get_suspicious_services():
 
         return suspicious
 
-        return suspicious
-
     except (
         OSError,
         subprocess.SubprocessError,
@@ -717,7 +745,7 @@ def get_suspicious_scheduled_tasks():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -810,7 +838,7 @@ def get_suspicious_processes():
         return None
 
     try:
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
@@ -957,7 +985,7 @@ def get_suspicious_events():
         ConvertTo-Json -Compress
         """
 
-        result = subprocess.run(
+        result = _run(
             [
                 "powershell",
                 "-NoProfile",
