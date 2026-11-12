@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.core import mail
 from urllib.parse import urlsplit
 
-from accounts.models import License, Workspace, WorkspaceMembership
+from accounts.models import License, Workspace, WorkspaceInvitation, WorkspaceMembership
 from licensing.models import AuditReport, LicensedDevice
 from remediation.models import RemediationRequest
 
@@ -273,10 +273,9 @@ class WorkspaceTests(TestCase):
             reverse("add_workspace_member"), {"email": "MEMBER@example.com"}
         )
         self.assertRedirects(response, reverse("dashboard"))
-        self.assertEqual(
-            WorkspaceMembership.objects.get(user=self.member).workspace,
-            workspace,
-        )
+        # L'ajout cree une invitation, pas encore un membership
+        self.assertFalse(WorkspaceMembership.objects.filter(user=self.member).exists())
+        self.assertTrue(WorkspaceInvitation.objects.filter(workspace=workspace).exists())
 
     def test_member_dashboard_uses_only_the_shared_workspace_license(self):
         workspace = Workspace.objects.create(
